@@ -9,6 +9,7 @@ import { useUI, type View } from '../ui';
 
 const VIEWS: { id: View; label: string; icon: () => React.JSX.Element }[] = [
   { id: 'hoje', label: 'Hoje', icon: I.cal },
+  { id: 'calendario', label: 'Calendário', icon: I.grid },
   { id: 'demandas', label: 'Demandas', icon: I.list },
   { id: 'rotinas', label: 'Rotinas', icon: I.repeat },
   { id: 'foco', label: 'Foco', icon: I.timer },
@@ -27,6 +28,7 @@ export function Nav({ m }: { m: Model }) {
     demandas: open.filter((d) => !d.parent_id).length,
     rotinas: (routines.data ?? []).filter((r) => r.active).length,
     foco: '',
+    calendario: '',
   };
 
   async function addGroup(e: React.FormEvent) {

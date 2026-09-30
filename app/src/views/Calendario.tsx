@@ -1,0 +1,304 @@
+// Calendário: o que aconteceu em cada dia (tempo registrado nas demandas e atividades livres)
+// junto com as reuniões do Outlook. Semana = mapa de atividades; Mês = ocupação; ao lado, o relatório do dia.
+import { useMemo, useState } from 'react';
+import { I } from '../components/Icons';
+import { Modal } from '../components/Modal';
+import { useEntriesBetween } from '../data/api';
+import { isOpen, type Model } from '../data/model';
+import { addDays, ddmm, isoDate, MON, parseDate, shortTime, toMinutes, WD, WDL } from '../lib/format';
+import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, useJornada, type DayStats, type Seg } from '../lib/occupancy';
+import { useMeetingsBetween } from '../lib/outlook';
+import { errMsg } from '../lib/supabase';
+import type { Meeting } from '../lib/types';
+import { useTimerCtx } from '../timer/TimerContext';
+import { CalendarioModal } from './CalendarioSettings';
+import { JornadaSettings } from './JornadaSettings';
+
+export type CalMode = 'semana' | 'mes';
+
+export function CalendarioToolbar({ mode, setMode }: { mode: CalMode; setMode: (m: CalMode) => void }) {
+  return (
+    <div className="toolbar">
+      <h2>Calendário</h2>
+      <div className="seg" role="group" aria-label="Visão">
+        {([['semana', 'Semana'], ['mes', 'Mês']] as const).map(([k, l]) => (
+          <button key={k} aria-pressed={mode === k} onClick={() => setMode(k)}>{l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const mondayOf = (d: Date) => addDays(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -((d.getDay() + 6) % 7));
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+const occColor = (p: number) => `color-mix(in srgb, var(--accent) ${Math.max(4, Math.min(72, Math.round((p - 40) * 1.2)))}%, var(--surface))`;
+const EMPTY: Seg[] = [];
+
+interface Day { k: string; d: Date; segs: Seg[]; meetings: Meeting[]; st: DayStats; hol: string | null; future: boolean; today: boolean }
+
+export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
+  const t = useTimerCtx();
+  const j = useJornada();
+  const todayK = isoDate(new Date(t.now));
+  const [anchor, setAnchor] = useState(() => new Date());
+  const [sel, setSel] = useState<string>(todayK);
+  const [modal, setModal] = useState<'' | 'outlook' | 'jornada'>('');
+
+  // Intervalo lido: o mês do âncora (grade seg–dom) mais a semana do âncora.
+  const monthFirst = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const monthLast = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  const week0 = mondayOf(anchor);
+  const gridFrom = mondayOf(monthFirst), gridTo = addDays(mondayOf(monthLast), 7);
+  const from = week0 < gridFrom ? week0 : gridFrom;
+  const to = addDays(week0, 7) > gridTo ? addDays(week0, 7) : gridTo;
+  const fromK = isoDate(from), toK = isoDate(to);
+  const range = useMemo(() => [parseDate(fromK), parseDate(toK)] as const, [fromK, toK]);
+
+  const entriesQ = useEntriesBetween(range[0], range[1]);
+  const cal = useMeetingsBetween(range[0], range[1]);
+  const segsByDay = useMemo(() => entriesByDay(entriesQ.data ?? [], t.now), [entriesQ.data, t.now]);
+
+  const groupOf = (id: string) => m.byId.get(id)?.group_id ?? '';
+  const colorOfKey = (key: string) => (key.startsWith('d:') ? m.colorOf(m.byId.get(key.slice(2))) : 'var(--muted)');
+  const nameOfKey = (key: string) => (key.startsWith('d:') ? m.byId.get(key.slice(2))?.title ?? 'Demanda removida' : key.slice(2) || 'Atividade livre');
+  const colorOfGroup = (g: string) => (g ? m.groupColor(m.groupById.get(g), m.groups.findIndex((x) => x.id === g)) : 'var(--muted)');
+
+  const day = (d: Date): Day => {
+    const k = isoDate(d), segs = segsByDay.get(k) ?? EMPTY, meetings = cal.meetingsOn(k);
+    return { k, d, segs, meetings, st: dayStats(k, segs, meetings, j, groupOf), hol: holidayOf(k), future: k > todayK, today: k === todayK };
+  };
+
+  const dues = (k: string) => m.demands.filter((d) => isOpen(d) && d.due_date === k && d.due_time);
+
+  const shift = (n: number) => {
+    const a = new Date(anchor);
+    if (mode === 'mes') a.setMonth(a.getMonth() + n, 1); else a.setDate(a.getDate() + 7 * n);
+    setAnchor(a);
+  };
+
+  const monthDays: Day[] = [];
+  for (let d = new Date(monthFirst); d <= monthLast; d = addDays(d, 1)) monthDays.push(day(d));
+  const selDay = day(parseDate(sel));
+
+  return (
+    <div className="calview">
+      <div className="stack" style={{ gap: 14, minWidth: 0 }}>
+        <MonthSummary days={monthDays} month={monthFirst} />
+        {entriesQ.error ? <div className="cfgbanner">Não foi possível ler o tempo registrado: {errMsg(entriesQ.error)}</div> : null}
+        {cal.available && !cal.connected && (
+          <div className="cfgbanner">As reuniões do Outlook ainda não estão no calendário. <button className="linkbtn" onClick={() => setModal('outlook')}>Conectar Outlook</button></div>
+        )}
+        {cal.error ? <div className="cfgbanner">Erro ao ler o Outlook: {errMsg(cal.error)}</div> : null}
+        {mode === 'mes'
+          ? <MonthGrid days={monthDays} month={monthFirst} sel={sel} onSel={setSel} onShift={shift} colorOfGroup={colorOfGroup} m={m} jMin={jornadaMinutes(j)} jDays={j.days} />
+          : <WeekMap days={[0, 1, 2, 3, 4].map((i) => day(addDays(week0, i)))} sel={sel} onSel={setSel} onShift={shift} now={t.now}
+              colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} />}
+      </div>
+      <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onJornada={() => setModal('jornada')} />
+      {modal === 'outlook' && <CalendarioModal onClose={() => setModal('')} />}
+      {modal === 'jornada' && <Modal label="Jornada de trabalho" onClose={() => setModal('')}><JornadaSettings /></Modal>}
+    </div>
+  );
+}
+
+function MonthSummary({ days, month }: { days: Day[]; month: Date }) {
+  const work = days.filter((x) => x.st.J > 0);
+  const past = days.filter((x) => !x.future);
+  const reg = past.reduce((a, x) => a + x.st.dem + x.st.free, 0);
+  const meet = days.reduce((a, x) => a + (x.future ? 0 : x.st.meet), 0);
+  const full = work.filter((x) => !x.future && !x.today && x.st.pct != null);
+  const avg = full.length ? Math.round(full.reduce((a, x) => a + x.st.pct!, 0) / full.length) : null;
+  return (
+    <div className="stats" style={{ margin: 0 }}>
+      <span className="chip">{cap(MON[month.getMonth()])}: {work.length} dias úteis</span>
+      <span className="chip"><I.timer />{hmin(reg)} registradas</span>
+      <span className="chip conf">{hmin(meet)} em reuniões</span>
+      {avg != null && <span className={`chip ${avg >= 85 ? 'today' : 'ok'}`}>Ocupação média {avg}% (sem hoje)</span>}
+    </div>
+  );
+}
+
+function StackBar({ st, tall, colorOfGroup }: { st: DayStats; tall?: boolean; colorOfGroup: (g: string) => string }) {
+  const tot = Math.max(st.J, st.used, 1);
+  const seg = (v: number, c: string, l: string) => (v ? <i key={l} style={{ width: `${(v / tot) * 100}%`, background: c }} title={`${l}: ${hmin(v)}`} /> : null);
+  return (
+    <div className={`stack-bar ${tall ? 'tall' : ''}`}>
+      {[...st.byGroup].map(([g, v]) => seg(v, colorOfGroup(g), g || 'Sem grupo'))}
+      {seg(st.free, 'var(--muted)', 'Atividades livres')}
+      {seg(st.meet, 'var(--meet)', 'Reuniões')}
+    </div>
+  );
+}
+
+function Nav({ label, onShift }: { label: string; onShift: (n: number) => void }) {
+  return (
+    <div className="wnav">
+      <button className="iconbtn" aria-label="Anterior" onClick={() => onShift(-1)}>‹</button>
+      <b>{label}</b>
+      <button className="iconbtn" aria-label="Próximo" onClick={() => onShift(1)}>›</button>
+    </div>
+  );
+}
+
+function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jDays }: {
+  days: Day[]; month: Date; sel: string; onSel: (k: string) => void; onShift: (n: number) => void;
+  colorOfGroup: (g: string) => string; m: Model; jMin: number; jDays: number[];
+}) {
+  const lead = (month.getDay() + 6) % 7, tail = (7 - ((lead + days.length) % 7)) % 7;
+  return (
+    <div className="panel">
+      <Nav label={`${cap(MON[month.getMonth()])} de ${month.getFullYear()}`} onShift={onShift} />
+      <div className="mgrid">
+        {['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map((w) => <div key={w} className="mhd">{w}</div>)}
+        {Array.from({ length: lead }, (_, i) => <div key={`l${i}`} className="mc out" />)}
+        {days.map((x) => {
+          const off = !jDays.includes(x.d.getDay());
+          const has = !x.future && (x.st.used > 0 || x.st.J > 0);
+          const bg = !x.hol && !x.future && x.st.pct != null ? occColor(x.st.pct) : undefined;
+          return (
+            <button key={x.k} className={`mc ${off ? 'wk' : ''} ${sel === x.k ? 'sel' : ''} ${x.today ? 'today' : ''}`} style={bg ? { background: bg } : undefined}
+              onClick={() => onSel(x.k)} aria-label={`${x.d.getDate()} de ${MON[month.getMonth()]}${x.st.pct != null && !x.future ? `, ocupação ${x.st.pct}%` : ''}`}>
+              <span className="mcd">{x.d.getDate()}</span>
+              {x.hol ? <span className="mch">Feriado</span>
+                : x.future ? (x.meetings.length ? <span className="mch mono">{hmin(x.st.meet)} reuniões</span> : null)
+                : has ? <>
+                    {x.st.pct != null && <span className="mcp mono">{x.st.pct}%</span>}
+                    <span className="mch mono">{hmin(x.st.used)}</span>
+                    <StackBar st={x.st} colorOfGroup={colorOfGroup} />
+                  </> : null}
+            </button>
+          );
+        })}
+        {Array.from({ length: tail }, (_, i) => <div key={`t${i}`} className="mc out" />)}
+      </div>
+      <div className="legend">
+        {m.groups.map((g, i) => <span key={g.id}><i style={{ background: m.groupColor(g, i) }} />{g.name}</span>)}
+        <span><i style={{ background: 'var(--muted)' }} />Atividades livres</span>
+        <span><i style={{ background: 'var(--meet)' }} />Reuniões</span>
+        <span className="note">Cor do dia = ocupação da jornada de {hmin(jMin)}</span>
+      </div>
+    </div>
+  );
+}
+
+const PX = 50, START = 8 * 60, END = 18 * 60;
+const wy = (min: number) => ((Math.min(Math.max(min, START), END) - START) / 60) * PX;
+
+function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues }: {
+  days: Day[]; sel: string; onSel: (k: string) => void; onShift: (n: number) => void; now: number;
+  colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands'];
+}) {
+  const nowD = new Date(now), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+  const hours = [];
+  for (let h = 8; h <= 18; h++) hours.push(h);
+  return (
+    <div className="panel">
+      <Nav label={`Semana de ${ddmm(days[0].d)} a ${ddmm(days[4].d)}`} onShift={onShift} />
+      <div className="wwrap"><div className="wgrid">
+        <div className="whead"><div />
+          {days.map((x) => (
+            <button key={x.k} className={`whd ${sel === x.k ? 'sel' : ''}`} onClick={() => onSel(x.k)}>
+              <b>{WD[x.d.getDay()]}, {ddmm(x.d)}</b>
+              <span className="note">{x.hol ? 'Feriado' : x.future ? 'Planejado' : `${hmin(x.st.used)}${x.st.pct != null ? ` · ${x.st.pct}%` : ''}`}</span>
+            </button>
+          ))}
+        </div>
+        <div className="wbody">
+          <div className="whours">{hours.map((h) => <div key={h} className="whr" style={{ top: wy(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}h</span></div>)}</div>
+          {days.map((x) => (
+            <div key={x.k} className={`wcol ${x.hol ? 'hol' : ''} ${sel === x.k ? 'sel' : ''}`} onClick={() => onSel(x.k)}>
+              {x.meetings.map((mt) => {
+                const a = toMinutes(mt.start)!, b = toMinutes(mt.end)!;
+                if (b <= START || a >= END) return null;
+                return <div key={(mt.id ?? mt.title) + mt.start} className="wb meet" style={{ top: wy(a), height: Math.max(3, wy(b) - wy(a) - 1) }} title={`${mt.title} ${mt.start}–${mt.end}`}><span>{mt.title}</span></div>;
+              })}
+              {x.segs.map((s, i) => {
+                if (s.end <= START || s.start >= END) return null;
+                return <div key={i} className="wb" style={{ top: wy(s.start), height: Math.max(3, wy(s.end) - wy(s.start) - 1), background: colorOfKey(s.key) }}
+                  title={`${nameOfKey(s.key)} ${hmm(s.start)}–${hmm(s.end)}`}><span>{nameOfKey(s.key)}</span></div>;
+              })}
+              {dues(x.k).map((d) => {
+                const tm = toMinutes(d.due_time)!;
+                if (tm < START || tm > END) return null;
+                return <div key={d.id} className="wdue" style={{ top: wy(tm) }} title={`Entrega: ${d.title}`}><span>{shortTime(d.due_time)} entrega</span></div>;
+              })}
+              {x.today && nowMin >= START && nowMin <= END && <div className="now" style={{ top: wy(nowMin) }} />}
+            </div>
+          ))}
+        </div>
+      </div></div>
+      <p className="note">Blocos coloridos são o tempo que você registrou em cada demanda, mesmo as que nunca foram para o calendário. Reuniões hachuradas vêm do Outlook.</p>
+    </div>
+  );
+}
+
+const hmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onJornada }: {
+  day: Day; j: ReturnType<typeof useJornada>; colorOfKey: (k: string) => string; nameOfKey: (k: string) => string;
+  colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onJornada: () => void;
+}) {
+  const label = `${cap(WDL[x.d.getDay()])}, ${ddmm(x.d)}`;
+  const foot = <p className="note">Reunião que coincide com tempo registrado conta uma vez só. Jornada: {j.start}–{j.end}, {j.lunch} min de almoço. <button className="linkbtn" onClick={onJornada}>Alterar jornada</button></p>;
+  const meetList = x.meetings.length > 0 && (
+    <div className="sect"><h4>Reuniões</h4>{x.meetings.map((mt) => <div className="item" key={(mt.id ?? mt.title) + mt.start}><span>{mt.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{mt.start}–{mt.end}</span></div>)}</div>
+  );
+
+  if (x.hol && !x.st.used) return <div className="panel dayrep"><h3>{label}</h3><p className="note">Feriado: {x.hol}. Fora da jornada.</p></div>;
+  if (x.future) {
+    const ds = dues(x.k);
+    return (
+      <div className="panel dayrep stack" style={{ gap: 12 }}>
+        <h3>{label} <span className="chip">Planejado</span></h3>
+        <p className="note">Reuniões marcadas: {x.meetings.length} ({hmin(x.st.meet)}).{x.st.J ? ` Sobram ${hmin(Math.max(0, x.st.J - x.st.meet))} da jornada para demandas.` : ''}</p>
+        {ds.length > 0 && <div className="sect"><h4>Entregas</h4>{ds.map((d) => <div className="item" key={d.id}><span>{d.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{shortTime(d.due_time)}</span></div>)}</div>}
+        {meetList}
+        {foot}
+      </div>
+    );
+  }
+
+  const rows = [...x.st.byKey].sort((a, b) => b[1] - a[1]);
+  const pct = x.st.pct;
+  const PXm = 100 / (END - START);
+  const pos = (a: number, b: number) => ({ left: `${(Math.max(a, START) - START) * PXm}%`, width: `${(Math.min(b, END) - Math.max(a, START)) * PXm}%` });
+  return (
+    <div className="panel dayrep stack" style={{ gap: 14 }}>
+      <div>
+        <h3>{label}{x.today && <span className="chip today">hoje, até agora</span>}</h3>
+        {pct != null
+          ? <div className="bigocc"><span className="mono">{pct}%</span><span className="note">da jornada ocupada · {hmin(x.st.used)} de {hmin(x.st.J)}</span>
+              <span className={`chip ${pct >= 95 ? 'late' : pct >= 80 ? 'today' : 'ok'}`}>{occLabel(pct)}</span></div>
+          : <div className="bigocc"><span className="mono">{hmin(x.st.used)}</span><span className="note">registradas · dia fora da jornada</span></div>}
+      </div>
+      <StackBar st={x.st} tall colorOfGroup={colorOfGroup} />
+      <dl className="occ4">
+        <div><dt>Demandas</dt><dd className="mono">{hmin(x.st.dem)}</dd></div>
+        <div><dt>Atividades livres</dt><dd className="mono">{hmin(x.st.free)}</dd></div>
+        <div><dt>Reuniões</dt><dd className="mono">{hmin(x.st.meet)}</dd></div>
+        <div><dt>Sem registro</dt><dd className="mono">{hmin(x.st.idle)}</dd></div>
+      </dl>
+      <div className="sect"><h4>Mapa do dia <span className="n">08h a 18h</span></h4>
+        <div className="strip">
+          {x.meetings.map((mt) => { const a = toMinutes(mt.start)!, b = toMinutes(mt.end)!; return b > START && a < END ? <i key={'m' + (mt.id ?? mt.title) + mt.start} className="sm" style={pos(a, b)} /> : null; })}
+          {x.segs.map((s, i) => (s.end > START && s.start < END ? <i key={i} style={{ ...pos(s.start, s.end), background: colorOfKey(s.key) }} title={nameOfKey(s.key)} /> : null))}
+        </div>
+        <div className="stripax mono"><span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span></div>
+      </div>
+      <div className="sect"><h4>Por demanda</h4>
+        <div className="tbars">
+          {rows.map(([k, v]) => (
+            <div className="r" key={k}>
+              <span><span className="dot" style={{ display: 'inline-block', marginRight: 6, background: colorOfKey(k) }} />{nameOfKey(k)}</span>
+              <span className="mono" style={{ textAlign: 'right' }}>{hmin(v)}</span>
+              <div className="bar"><i style={{ width: `${(v / rows[0][1]) * 100}%`, background: colorOfKey(k) }} /></div>
+            </div>
+          ))}
+          {!rows.length && <p className="note">Nenhum tempo registrado neste dia.</p>}
+        </div>
+      </div>
+      {meetList}
+      {foot}
+    </div>
+  );
+}

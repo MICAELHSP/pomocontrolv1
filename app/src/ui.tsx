@@ -1,7 +1,7 @@
 // Estado de navegação da janela.
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-export type View = 'hoje' | 'demandas' | 'rotinas' | 'foco';
+export type View = 'hoje' | 'calendario' | 'demandas' | 'rotinas' | 'foco';
 
 interface UI {
   view: View;

@@ -103,6 +103,16 @@ export const useTimer = () => useQuery({
   },
 });
 
+/** Sessões de tempo que tocam o intervalo [from, to) (Calendário). */
+export const useEntriesBetween = (from: Date, to: Date) => useQuery({
+  queryKey: ['entries', from.toISOString(), to.toISOString()],
+  refetchInterval: 60_000,
+  queryFn: async () => must(await sb().from('time_entries').select('*')
+    .lt('started_at', to.toISOString())
+    .or(`ended_at.gte.${from.toISOString()},ended_at.is.null`)
+    .order('started_at')) as TimeEntry[],
+});
+
 /* ------------------------------ escritas ------------------------------ */
 
 export function useInvalidate() {

@@ -112,3 +112,19 @@ export function useCalendar(): Calendar {
     meetingsOn,
   };
 }
+
+/** Reuniões de um intervalo qualquer (ex.: a semana ou o mês do Calendário), por dia local. */
+export function useMeetingsBetween(from: Date, to: Date) {
+  const b = outlook();
+  const { data: st } = useQuery({ queryKey: calKeys.status, queryFn: () => b!.status(), enabled: !!b, staleTime: Infinity });
+  const q = useQuery({
+    queryKey: [...calKeys.events, 'range', from.toISOString(), to.toISOString()],
+    enabled: !!st?.connected,
+    staleTime: 2 * 60_000,
+    refetchInterval: 5 * 60_000,
+    queryFn: () => b!.events(from.toISOString(), to.toISOString()),
+  });
+  const byDay = useMemo(() => toDayMeetings(q.data ?? []), [q.data]);
+  const meetingsOn = useCallback((date: string | null | undefined) => (date ? byDay.get(date) ?? EMPTY : EMPTY), [byDay]);
+  return { meetingsOn, loading: !!st?.connected && q.isLoading, error: q.error, connected: !!st?.connected, available: !!b };
+}

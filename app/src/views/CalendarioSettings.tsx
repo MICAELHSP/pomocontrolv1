@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { I } from '../components/Icons';
+import { Modal } from '../components/Modal';
 import { calKeys, outlook, useCalendar } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 
@@ -86,19 +87,7 @@ export function CalendarioSettings() {
 }
 
 export function CalendarioModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
-  return (
-    <div className="modal-back" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Calendário (Outlook)">
-        <button className="iconbtn modal-x" aria-label="Fechar" onClick={onClose}><I.x /></button>
-        <CalendarioSettings />
-      </div>
-    </div>
-  );
+  return <Modal label="Calendário (Outlook)" onClose={onClose}><CalendarioSettings /></Modal>;
 }
 
 /** Rótulo do título da agenda: origem das reuniões ou o convite para conectar. */

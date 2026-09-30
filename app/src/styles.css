@@ -327,3 +327,56 @@ p.err{font-size:13px;margin:0}
 .cal-set h3{margin:0;font-size:15px}
 .cal-set a{color:var(--accent)}
 .cal-ok{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+
+/* ---------- calendário (semana, mês, relatório do dia) ---------- */
+.calview{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:18px;align-items:start}
+.mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.mhd{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 4px 2px}
+.mc{min-height:76px;border:1px solid var(--line);border-radius:7px;background:var(--surface);padding:5px 6px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-width:0}
+.mc.out{border-color:transparent;background:none}
+.mc.wk{background:var(--surface-2);opacity:.6}
+.mc.sel{outline:2px solid var(--fg);outline-offset:-1px}
+.mc.today .mcd{background:var(--focus);color:#fff;border-radius:999px;padding:0 6px}
+.mcd{font-size:12px;font-weight:600}
+.mcp{font-size:15px;font-weight:600;line-height:1.1}
+.mch{font-size:11px;color:var(--muted)}
+.mc .stack-bar{margin-top:auto;width:100%}
+.stack-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--surface-2);gap:1px;width:100%}
+.stack-bar.tall{height:12px;border-radius:6px}
+.stack-bar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:10px;height:10px;border-radius:2px;display:block}
+.wnav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.wnav b{font-size:14px}
+.wwrap{overflow-x:auto}
+.wgrid{min-width:560px}
+.whead,.wbody{display:grid;grid-template-columns:36px repeat(5,minmax(0,1fr));gap:4px}
+.whd{border:0;background:none;text-align:left;padding:4px 6px;border-radius:6px;display:flex;flex-direction:column;min-width:0}
+.whd b{font-size:12px}
+.whd.sel{background:var(--accent-soft)}
+.wbody{position:relative;height:510px;margin-top:4px}
+.whours{position:relative}
+.whr{position:absolute;left:0;right:0;font-size:10px;color:var(--muted)}
+.whr span{position:relative;top:-7px}
+.wcol{position:relative;border-left:1px solid var(--line);background:repeating-linear-gradient(to bottom,transparent 0 49px,var(--line) 49px 50px);cursor:pointer;border-radius:2px}
+.wcol.sel{background-color:var(--accent-soft)}
+.wcol.hol{background-color:var(--surface-2)}
+.wb{position:absolute;left:3px;right:3px;border-radius:3px;overflow:hidden;font-size:10px;color:#fff;padding:0 4px;line-height:1.3}
+.wb span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb.meet{background:repeating-linear-gradient(135deg,var(--meet-soft) 0 5px,var(--surface) 5px 7px);border:1px solid var(--meet);color:var(--meet);font-weight:600;z-index:1}
+.wdue{position:absolute;left:0;right:0;border-top:2px solid var(--warn);z-index:2}
+.wdue span{position:absolute;right:2px;top:-9px;font-size:9px;background:var(--warn);color:var(--surface);padding:0 4px;border-radius:3px;white-space:nowrap}
+.wcol .now{position:absolute;left:0;right:0;border-top:2px solid var(--focus);z-index:3}
+.dayrep h3{margin:0 0 6px;font-size:15px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bigocc{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.bigocc .mono{font-size:34px;font-weight:600;line-height:1}
+.occ4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0}
+.occ4 dt{font-size:11px;color:var(--muted)}
+.occ4 dd{margin:0;font-weight:600}
+.strip{position:relative;height:22px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.strip i{position:absolute;top:5px;bottom:5px;display:block;border-radius:2px}
+.strip i.sm{top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--meet-soft) 0 4px,var(--surface) 4px 6px);border:1px solid var(--meet)}
+.stripax{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px}
+@media (max-width:1000px){.calview{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.mc{min-height:58px;padding:3px}.mc .mch,.mc .stack-bar{display:none}.mcp{font-size:12px}.occ4{grid-template-columns:repeat(2,minmax(0,1fr))}}
