@@ -25,7 +25,7 @@ update demands set parent_id = 'cccccccc-0000-0000-0000-000000000001' where id =
 insert into demand_dependencies (demand_id, depends_on_id) values ('cccccccc-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000002');
 
 select pg_temp.expect_error($$insert into demand_dependencies (demand_id, depends_on_id) values ('cccccccc-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001')$$, 'circular');
-select pg_temp.expect_error($$update demands set parent_id = 'cccccccc-0000-0000-0000-000000000003' where id = 'cccccccc-0000-0000-0000-000000000001'$$, 'circular');
+select pg_temp.expect_error($$update demands set parent_id = 'cccccccc-0000-0000-0000-000000000003' where id = 'cccccccc-0000-0000-0000-000000000001'$$, 'não pode ter subtarefas'); -- com um nível só, o ciclo mãe-filha cai na regra de profundidade
 select pg_temp.expect_error($$update demands set status = 'done' where id = 'cccccccc-0000-0000-0000-000000000001'$$, 'depende de Coletar dados');
 update demands set status = 'done' where id = 'cccccccc-0000-0000-0000-000000000002';
 select pg_temp.expect_error($$update demands set status = 'done' where id = 'cccccccc-0000-0000-0000-000000000001'$$, 'subtarefas abertas: Revisar texto');
