@@ -48,7 +48,10 @@ src/components/  barra lateral, rodapé do cronômetro, linha de demanda, seleto
 src/views/       Hoje, Demandas, Detalhe, Rotinas, Foco, Login
 ```
 
+## Calendário do Outlook
+
+O app lê as reuniões do Outlook (Microsoft Graph, só leitura) para a agenda de Hoje, o selo de conflito e o "Mover para". O login e as chamadas ficam no processo principal (`electron/outlook.cjs`); o renderer usa `useCalendar()` de `src/lib/outlook.ts`. Para conectar é preciso registrar o app no Azure: passo a passo em [docs/outlook.md](../docs/outlook.md). No `npm run dev:web` (navegador) o calendário fica indisponível.
+
 ## Ainda não feito
 
 - Nova demanda com IA (captura por texto ou imagem, revisão e criação): próximo passo, com a tela Configurações > Inteligência artificial.
-- Reuniões do Outlook na agenda e no alerta de conflito (fase de integração). O código de conflito já existe e usa uma lista vazia por enquanto.

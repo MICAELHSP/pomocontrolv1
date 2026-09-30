@@ -3,7 +3,7 @@ import { conflictOf, DueChip, useToggleDone } from '../components/DemandRow';
 import { I } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import { api, qk, useChecklist, useInvalidate, useRoutines, useUpdates } from '../data/api';
-import { isOpen, MEETINGS, type Model } from '../data/model';
+import { isOpen, type Model } from '../data/model';
 import { nextFreeTime } from '../lib/conflict';
 import { clockHMS, dur, secondsBetween, shortTime, timeOf } from '../lib/format';
 import { errMsg } from '../lib/supabase';
@@ -46,7 +46,8 @@ export function Detail({ m }: { m: Model }) {
   const openKids = kids.filter(isOpen);
   const deps = m.depsOf(d.id);
   const blockers = m.blockers(d.id);
-  const c = conflictOf(d);
+  const c = conflictOf(d, m);
+  const dayMeetings = m.meetingsOn(d.due_date);
   const items = cl.data ?? [];
   const clDone = items.filter((x) => x.done).length;
   const running = t.entry?.demand_id === d.id;
@@ -143,7 +144,7 @@ export function Detail({ m }: { m: Model }) {
 
         {c && d.due_time && (
           <div className="alert"><I.warn /><div>A entrega às <b>{shortTime(d.due_time)}</b> cai durante <b>{c.title}</b> ({c.start}–{c.end}).<br />
-            <button className="btn" onClick={() => patch({ due_time: nextFreeTime(d.due_time!, MEETINGS) })}>Mover para {nextFreeTime(d.due_time, MEETINGS)}</button></div></div>
+            <button className="btn" onClick={() => patch({ due_time: nextFreeTime(d.due_time!, dayMeetings) })}>Mover para {nextFreeTime(d.due_time, dayMeetings)}</button></div></div>
         )}
 
         {!d.parent_id && (

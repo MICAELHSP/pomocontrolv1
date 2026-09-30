@@ -8,5 +8,5 @@ export default defineConfig({
   plugins: [react()],
   server: { port: 5173, strictPort: true },
   build: { chunkSizeWarningLimit: 1500 },
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'electron/**/*.test.mjs'] },
 });

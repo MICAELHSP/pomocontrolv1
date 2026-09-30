@@ -2,7 +2,7 @@ import type { MouseEvent } from 'react';
 import { I } from './Icons';
 import { useToast } from './Toast';
 import { api, qk, useInvalidate } from '../data/api';
-import { isOpen, MEETINGS, type Model } from '../data/model';
+import { isOpen, type Model } from '../data/model';
 import { meetingAt } from '../lib/conflict';
 import { dayDiff, ddmm, dur, parseDate, shortTime, WD } from '../lib/format';
 import { errMsg } from '../lib/supabase';
@@ -10,9 +10,10 @@ import type { DemandOverview } from '../lib/types';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 
-export function conflictOf(d: DemandOverview) {
-  if (!d.due_time || !d.due_date || !isOpen(d) || dayDiff(d.due_date) !== 0) return null;
-  return meetingAt(d.due_time, MEETINGS);
+/** Reunião do Outlook no dia e hora do prazo (demandas abertas, de hoje em diante). */
+export function conflictOf(d: DemandOverview, m: Pick<Model, 'meetingsOn'>) {
+  if (!d.due_time || !d.due_date || !isOpen(d) || dayDiff(d.due_date) < 0) return null;
+  return meetingAt(d.due_time, m.meetingsOn(d.due_date));
 }
 
 export function DueChip({ d }: { d: DemandOverview }) {
@@ -29,7 +30,7 @@ export function Chips({ d, m, withGroup }: { d: DemandOverview; m: Model; withGr
   const kids = m.children(d.id);
   const openKids = kids.filter(isOpen).length;
   const od = isOpen(d) ? m.openDeps(d.id) : [];
-  const c = conflictOf(d);
+  const c = conflictOf(d, m);
   const g = d.group_id ? m.groupById.get(d.group_id) : undefined;
   const cut = (s: string) => (s.length > 30 ? s.slice(0, 30) + '…' : s);
   return (

@@ -159,11 +159,14 @@ export interface PomodoroBreakdownRow {
 /** Atividade = uma demanda ou uma atividade livre (ex.: "E-mails"). */
 export type Activity = { demandId: string; free?: undefined } | { free: string; demandId?: undefined };
 
-/** Reunião do calendário (fase de integração com o Outlook). */
+/** Reunião do calendário (Outlook), já recortada no dia local. */
 export interface Meeting {
   title: string;
   start: string; // hh:mm
-  end: string; // hh:mm
+  end: string; // hh:mm (24:00 quando passa da meia-noite)
+  id?: string;
+  date?: string; // yyyy-mm-dd
+  webLink?: string | null;
 }
 
 export const DEFAULT_SETTINGS: PomodoroSettings = {
