@@ -32,12 +32,16 @@ describe('outlook-core', () => {
     expect(core.mapEvent({ id: '2', start: null, end: null }).title).toBe('(sem assunto)');
   });
 
-  it('cancelado, livre e dia inteiro não ocupam a agenda', () => {
-    expect(core.blocksTime({ showAs: 'busy' })).toBe(true);
-    expect(core.blocksTime({ showAs: 'tentative' })).toBe(true);
-    expect(core.blocksTime({ showAs: 'free' })).toBe(false);
-    expect(core.blocksTime({ isCancelled: true })).toBe(false);
-    expect(core.blocksTime({ isAllDay: true })).toBe(false);
+  it('canceladas e recusadas ficam de fora', () => {
+    expect(core.isReal({ showAs: 'busy' })).toBe(true);
+    expect(core.isReal({ showAs: 'free', isAllDay: true })).toBe(true);
+    expect(core.isReal({ isCancelled: true })).toBe(false);
+    expect(core.isReal({ responseStatus: { response: 'declined' } })).toBe(false);
+    expect(core.isReal({ responseStatus: { response: 'tentativelyAccepted' } })).toBe(true);
+  });
+
+  it('local da reunião vem do displayName', () => {
+    expect(core.mapEvent({ id: '3', location: { displayName: 'Sala 2' } }).location).toBe('Sala 2');
   });
 
   it('erros do Azure viram dica em português', () => {

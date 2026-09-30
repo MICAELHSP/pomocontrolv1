@@ -8,6 +8,7 @@ export const I = {
   pause: P(<path d="M8 5v14M16 5v14" />),
   stop: P(<rect x="6" y="6" width="12" height="12" rx="1.5" />),
   skip: P(<path d="M6 5l9 7-9 7zM18 5v14" />),
+  grid: P(<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 4v17M13 4v17M3 14h18" /></>),
   check: P(<path d="M5 12l5 5 9-10" />),
   lock: P(<><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></>),
   x: P(<path d="M6 6l12 12M18 6L6 18" />),

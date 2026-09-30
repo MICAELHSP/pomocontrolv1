@@ -181,7 +181,7 @@ async function events({ from, to } = {}) {
   const out = [];
   for (let i = 0; url && i < 20; i++) {
     const json = await graph(url);
-    for (const e of json.value || []) if (core.blocksTime(e)) out.push(core.mapEvent(e));
+    for (const e of json.value || []) if (core.isReal(e)) out.push(core.mapEvent(e));
     url = json['@odata.nextLink'];
   }
   return out;

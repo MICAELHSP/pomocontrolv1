@@ -49,7 +49,7 @@ function calendarViewUrl(fromIso, toIso) {
   const q = new URLSearchParams({
     startDateTime: fromIso,
     endDateTime: toIso,
-    $select: 'id,subject,start,end,isAllDay,showAs,isCancelled,webLink',
+    $select: 'id,subject,start,end,isAllDay,showAs,isCancelled,responseStatus,location,webLink',
     $orderby: 'start/dateTime',
     $top: '250',
   });
@@ -67,11 +67,12 @@ function mapEvent(e) {
     allDay: !!e.isAllDay,
     showAs: e.showAs || 'busy',
     webLink: e.webLink || null,
+    location: (e.location && e.location.displayName) || null,
   };
 }
 
-/** Só o que ocupa a agenda: cancelado, "livre" e dia inteiro ficam de fora. */
-const blocksTime = (e) => !e.isCancelled && e.showAs !== 'free' && !e.isAllDay;
+/** Reunião que existe para você: canceladas e recusadas ficam de fora (livre e dia inteiro o app filtra). */
+const isReal = (e) => !e.isCancelled && !(e.responseStatus && e.responseStatus.response === 'declined');
 
 /** Erro do login/Graph -> mensagem em português com a dica do que fazer. */
 function friendlyError(err) {
@@ -94,4 +95,4 @@ function friendlyError(err) {
   return raw ? raw.split('\n')[0].slice(0, 300) : 'Erro desconhecido ao falar com a Microsoft.';
 }
 
-module.exports = { SCOPES, GRAPH, pkce, authorizeUrl, tokenUrl, codeBody, refreshBody, calendarViewUrl, mapEvent, blocksTime, friendlyError, b64url };
+module.exports = { SCOPES, GRAPH, pkce, authorizeUrl, tokenUrl, codeBody, refreshBody, calendarViewUrl, mapEvent, isReal, friendlyError, b64url };
