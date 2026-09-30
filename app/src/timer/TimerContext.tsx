@@ -28,11 +28,11 @@ interface TimerCtx {
   remaining: number;
   label: string;
   busy: boolean;
-  start: (a: Act) => Promise<void>;
-  pause: () => Promise<void>;
-  resume: () => Promise<void>;
-  stop: () => Promise<void>;
-  skip: () => Promise<void>;
+  start: (a: Act) => Promise<unknown>;
+  pause: () => Promise<unknown>;
+  resume: () => Promise<unknown>;
+  stop: () => Promise<unknown>;
+  skip: () => Promise<unknown>;
   /** segundos a somar ao total_seconds da visão para a demanda rodando */
   liveExtra: (demandId: string) => number;
   actName: (a: Act | null | undefined) => string;
@@ -114,9 +114,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(() => invalidate(qk.timer, qk.demands), [invalidate]);
 
-  const run = useCallback(async (fn: () => Promise<unknown>) => {
+  /** Executa uma ação do cronômetro; devolve false se falhou (o erro vira toast). */
+  const run = useCallback(async (fn: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
-    try { await fn(); } catch (e) { toast(errMsg(e)); } finally { await refresh(); setBusy(false); }
+    try { await fn(); return true; } catch (e) { toast(errMsg(e)); return false; } finally { await refresh(); setBusy(false); }
   }, [refresh, toast]);
 
   /** Ciclo do próximo foco quando não há pomodoro rodando. */
@@ -178,7 +179,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const msg = pomodoro.kind === 'focus'
       ? (n.kind === 'long_break' ? `${settings.cycles_before_long} focos concluídos. Pausa longa.` : 'Foco concluído. Hora do intervalo.')
       : 'Intervalo encerrado. Novo foco começou.';
-    run(async () => { await api.startPomodoro(n.kind, n.cycle); }).then(() => { toast(msg); notify('Pauta', msg); });
+    run(async () => { await api.startPomodoro(n.kind, n.cycle); }).then((ok) => {
+      if (ok) { toast(msg); notify('Pauta', msg); return; }
+      // Falhou (rede, token): libera nova tentativa em 15 s em vez de travar em 00:00.
+      setTimeout(() => { if (advancing.current === pomodoro.id) advancing.current = null; }, 15_000);
+    });
   }, [pomodoro, busy, remaining, settings, run, toast]);
 
   // Pomodoro desligado nos ajustes: encerra a fase que estiver rodando.
