@@ -39,6 +39,7 @@ export interface Demand {
   estimated_minutes: number | null;
   completed_at: string | null;
   position: number;
+  sort_order: number; // ordem manual entre irmãos (mesmo grupo e mesma mãe)
   external_ref: string | null;
   created_at: string;
 }

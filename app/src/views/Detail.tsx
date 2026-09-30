@@ -3,6 +3,7 @@ import { conflictOf, DueChip, useToggleDone } from '../components/DemandRow';
 import { I } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import { api, qk, useChecklist, useInvalidate, useRoutines, useUpdates } from '../data/api';
+import { useMover } from '../data/move';
 import { isOpen, MEETINGS, type Model } from '../data/model';
 import { nextFreeTime } from '../lib/conflict';
 import { clockHMS, dur, secondsBetween, shortTime, timeOf } from '../lib/format';
@@ -20,6 +21,7 @@ export function Detail({ m }: { m: Model }) {
   const toast = useToast();
   const invalidate = useInvalidate();
   const toggle = useToggleDone(m);
+  const mover = useMover(m);
   const d = ui.sel ? m.byId.get(ui.sel) : undefined;
   const cl = useChecklist(d?.id ?? null);
   const upd = useUpdates(d?.id ?? null);
@@ -124,6 +126,16 @@ export function Detail({ m }: { m: Model }) {
               onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== d.external_ref) patch({ external_ref: v }); }} />
           </dd>
           {parent && <><dt>Faz parte de</dt><dd><button className="btn ghost" style={{ padding: 0 }} onClick={() => ui.open(parent.id)}>{parent.title}</button></dd></>}
+          <dt>Mover</dt>
+          <dd>{d.parent_id
+            ? <button className="btn" onClick={() => mover.unnest(d)}>Tirar de dentro da demanda</button>
+            : m.children(d.id).length
+              ? <span className="note">Tem subtarefas, fica como demanda principal.</span>
+              : <select className="input" value="" aria-label="Tornar subtarefa de" onChange={(e) => { const tg = m.byId.get(e.target.value); if (tg) mover.nestInto(d, tg); }}>
+                  <option value="">Tornar subtarefa de…</option>
+                  {m.demands.filter((x) => !x.parent_id && x.id !== d.id && isOpen(x)).map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
+                </select>}
+          </dd>
           <dt>Depende de</dt>
           <dd>
             {deps.map((x) => (

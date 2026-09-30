@@ -1,14 +1,23 @@
 # Pauta (app desktop)
 
 Electron + React + TypeScript, dados no Supabase (schema `demandas_app`, ver `../backend`).
-Telas seguem `design/prototipo.html`: Hoje, Demandas (com detalhe), Rotinas e Foco, com a barra do cronômetro fixa no rodapé.
+Telas seguem `design/prototipo.html`: Hoje, Calendário, Demandas (com detalhe), Rotinas, Foco, Configurações e Nova demanda com IA, com a barra do cronômetro fixa no rodapé.
 
-## Rodar
+## Instalar (Windows)
+
+1. Em [Releases](https://github.com/MICAELHSP/pomocontrolv1/releases), baixe `Pauta-Setup-x.y.z.exe` e execute. O Windows pode avisar que o editor é desconhecido (o instalador não é assinado): clique em **Mais informações > Executar assim mesmo**.
+2. Na primeira abertura, informe a **URL do projeto** e a **chave publicável** do Supabase (Supabase > Project Settings > API; ver `../backend/README.md`). Ficam guardadas só neste computador.
+3. Crie a conta (e-mail e senha) ou entre.
+4. Para a IA: **Configurações > Inteligência artificial**, cole a chave do Gemini (https://aistudio.google.com/apikey) e clique em "Salvar e testar". A função `capturar-demanda` precisa estar publicada no Supabase (ver `../ia/`).
+
+Nova versão do instalador: `git tag v1.0.1 && git push origin v1.0.1` (o workflow `release` gera o .exe e cria a Release). Se os segredos `VITE_SUPABASE_URL` e `VITE_SUPABASE_KEY` existirem no repositório, o instalador já vem com o endereço do Supabase.
+
+## Rodar em desenvolvimento
 
 ```bash
 cd app
 npm install
-cp .env.example .env   # preencha URL e chave publicável do Supabase
+# opcional: crie .env com VITE_SUPABASE_URL=... e VITE_SUPABASE_KEY=... (não vai para o Git)
 npm run dev            # abre o Electron com recarga automática
 ```
 
@@ -21,7 +30,7 @@ Outros comandos:
 | Comando | O que faz |
 |---|---|
 | `npm run dev:web` | Só a interface no navegador (http://localhost:5173) |
-| `npm test` | Testes das regras no cliente (recorrência, pomodoro, conflito) |
+| `npm test` | Testes das regras no cliente (recorrência, pomodoro, conflito, ocupação, ordem, proposta da IA) |
 | `npm run typecheck` | Checagem de tipos |
 | `npm run dist:win` / `npm run dist:mac` | Gera o instalador em `release/` (rode no próprio sistema) |
 
@@ -35,6 +44,18 @@ Outros comandos:
 - **Pausar** grava o trecho e interrompe o foco atual; **Iniciar** começa um foco novo com a mesma atividade.
 - **Parar e gravar** encerra a atividade e a fase.
 
+## Arrastar, ordenar e aninhar
+
+- Cada linha de Demandas tem uma alça (⋮⋮). Soltar na borda de cima ou de baixo de outra linha reordena; se for outro grupo, muda de grupo. Soltar no título de um grupo leva para o fim dele.
+- Segurar 1 segundo no meio de outra demanda arma "virar subtarefa" (um nível só). O detalhe tem o mesmo pelo menu **Mover**.
+- Toda mudança mostra **Desfazer** por 6 segundos. A ordem manual fica em `demands.sort_order`; o seletor **Ordenar** também aceita Prazo, Nome e Tempo gasto.
+
+## Calendário
+
+- **Semana**: o tempo registrado em cada demanda aparece como blocos coloridos pelo grupo, das 08h às 18h, com as entregas do dia.
+- **Mês**: cada dia pintado pela ocupação da jornada. **Relatório do dia**: ocupação, demandas, atividades livres, reuniões, tempo sem registro e o tempo por demanda.
+- Ocupação = (tempo registrado + reuniões fora desse tempo) ÷ jornada. A jornada (padrão 08:00–17:00, 60 min de almoço, seg–sex) fica em Configurações > Jornada; feriados nacionais ficam fora.
+
 Toda regra fica no banco (RPCs `start_activity`, `stop_activity`, `start_pomodoro`, `finish_pomodoro`); o app só mostra o relógio entre uma leitura e outra.
 
 ## Estrutura
@@ -45,10 +66,10 @@ src/lib/         tipos, formatação, recorrência, pomodoro, conflito (+ testes
 src/data/        leituras/escritas no Supabase (React Query) e modelo derivado
 src/timer/       estado do cronômetro + pomodoro
 src/components/  barra lateral, rodapé do cronômetro, linha de demanda, seletor de atividade
-src/views/       Hoje, Demandas, Detalhe, Rotinas, Foco, Login
+src/views/       Hoje, Calendário, Demandas, Detalhe, Rotinas, Foco, Configurações, Nova com IA, Login
+build/           ícone do instalador
 ```
 
 ## Ainda não feito
 
-- Nova demanda com IA (captura por texto ou imagem, revisão e criação): próximo passo, com a tela Configurações > Inteligência artificial.
-- Reuniões do Outlook na agenda e no alerta de conflito (fase de integração). O código de conflito já existe e usa uma lista vazia por enquanto.
+- Reuniões do Outlook no calendário e no alerta de conflito: em andamento na integração com o Outlook. Até lá o calendário mostra só o tempo registrado.

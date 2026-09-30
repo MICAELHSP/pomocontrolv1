@@ -5,18 +5,18 @@ Leva uns 5 minutos. Não precisa instalar mais nada além do próprio app.
 ## 1. Baixar
 
 1. Abra a página de versões: <https://github.com/MICAELHSP/pomocontrolv1/releases>
-2. Na versão mais recente (no topo), em **Assets**, clique em **`Pauta Setup x.y.z.exe`**.
+2. Na versão mais recente (no topo), em **Assets**, clique em **`Pauta-Setup-x.y.z.exe`** (ex.: `Pauta-Setup-1.0.0.exe`).
 
 ## 2. Instalar
 
 1. Abra o arquivo baixado.
 2. O Windows pode mostrar a tela azul **"O Windows protegeu o computador"**. Isso acontece porque o app ainda não tem assinatura digital paga, não porque tenha algo errado.
    Clique em **Mais informações** e depois em **Executar assim mesmo**.
-3. Siga o instalador. No fim, o Pauta abre sozinho e ganha um atalho na Área de Trabalho e no Menu Iniciar.
+3. No instalador, clique em **Avançar** (pode manter a pasta sugerida) e depois em **Instalar**. No fim, o Pauta ganha um atalho na Área de Trabalho e no Menu Iniciar.
 
 ## 3. Primeira abertura
 
-**Se aparecer a tela "URL do projeto" e "Chave publicável"**, copie e cole:
+**Se aparecer a tela "URL do projeto" e "Chave publicável"** (só acontece quando o instalador foi gerado sem esses dados embutidos), copie e cole:
 
 | Campo | Valor |
 |---|---|
@@ -39,7 +39,7 @@ Instale do mesmo jeito e, em vez de criar conta, clique em **Entrar** com o mesm
 
 ## 5. Atualizar para uma versão nova
 
-Baixe o `.exe` da versão mais recente (passo 1) e instale por cima. Seus dados não se perdem, porque ficam no Supabase, não no computador.
+Baixe o `.exe` da versão mais recente (passo 1) e instale por cima, na mesma pasta. Seus dados não se perdem, porque ficam no Supabase, não no computador.
 
 ## Se algo der errado
 
