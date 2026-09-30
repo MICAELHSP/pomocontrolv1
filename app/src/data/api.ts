@@ -18,6 +18,8 @@ export const qk = {
   routines: ['routines'] as const,
   settings: ['settings'] as const,
   timer: ['timer'] as const,
+  ai: ['ai'] as const,
+  range: (from: string, to: string) => ['range', from, to] as const,
 };
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -36,8 +38,15 @@ export const useTypes = () => useQuery({
 
 export const useDemands = () => useQuery({
   queryKey: qk.demands,
-  queryFn: async () => must(await sb().from('demand_overview').select('*')
-    .neq('status', 'canceled').order('due_date', { nullsFirst: false }).order('position')) as DemandOverview[],
+  queryFn: async () => {
+    // A visão foi criada antes da coluna sort_order (migration 7): a ordem manual vem da tabela.
+    const [ov, ord] = await Promise.all([
+      sb().from('demand_overview').select('*').neq('status', 'canceled').order('due_date', { nullsFirst: false }),
+      sb().from('demands').select('id, sort_order'),
+    ]);
+    const order = new Map((must(ord) as { id: string; sort_order: number | null }[]).map((x) => [x.id, x.sort_order]));
+    return (must(ov) as DemandOverview[]).map((d) => ({ ...d, sort_order: Number(order.get(d.id) ?? d.sort_order ?? 0) }));
+  },
 });
 
 export const useDeps = () => useQuery({
@@ -103,6 +112,46 @@ export const useTimer = () => useQuery({
   },
 });
 
+export interface AiSettings { provider: string; model: string | null; key_hint: string | null; updated_at: string }
+
+export const useAiSettings = () => useQuery({
+  queryKey: qk.ai,
+  queryFn: async () => must(await sb().from('ai_settings').select('provider, model, key_hint, updated_at').maybeSingle()) as AiSettings | null,
+});
+
+/** Trechos de tempo e pomodoros entre duas datas (inclusive), para o Calendário. */
+export const useRange = (from: string, to: string) => useQuery({
+  queryKey: qk.range(from, to),
+  queryFn: async () => {
+    const a = new Date(from + 'T00:00:00'), b = new Date(to + 'T00:00:00');
+    b.setDate(b.getDate() + 1);
+    return must(await sb().from('time_entries').select('*')
+      .lt('started_at', b.toISOString())
+      .or(`ended_at.gte.${a.toISOString()},ended_at.is.null`)
+      .order('started_at')) as TimeEntry[];
+  },
+});
+
+/** Erro de Edge Function com a mensagem que ela devolveu em { erro }. */
+async function fnError(error: unknown): Promise<Error> {
+  const ctx = (error as { context?: Response }).context;
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const body = await ctx.clone().json();
+      if (body?.erro) return new Error(body.erro);
+    } catch { /* corpo não é JSON */ }
+    if (ctx.status === 404) return new Error('A função capturar-demanda ainda não foi publicada no Supabase.');
+  }
+  return new Error((error as Error)?.message || 'Falha ao chamar a IA.');
+}
+
+async function invokeFn<T>(body: unknown, signal?: AbortSignal): Promise<T> {
+  const { data, error } = await sb().functions.invoke('capturar-demanda', { body, signal } as never);
+  if (error) throw await fnError(error);
+  if ((data as { erro?: string })?.erro) throw new Error((data as { erro: string }).erro);
+  return data as T;
+}
+
 /* ------------------------------ escritas ------------------------------ */
 
 export function useInvalidate() {
@@ -166,6 +215,32 @@ export const api = {
   async saveSettings(s: Partial<PomodoroSettings>) {
     const { data: { user } } = await sb().auth.getUser();
     must(await sb().from('pomodoro_settings').upsert({ owner_id: user!.id, ...s }));
+  },
+  /** Move uma demanda (reordenar, mudar de grupo, entrar/sair de uma mãe). O banco aplica as regras. */
+  async moveDemand(id: string, patch: { parent_id?: string | null; group_id?: string | null; sort_order?: number | null }) {
+    must(await sb().from('demands').update(patch).eq('id', id));
+  },
+  async renormalizeOrder(groupId: string | null, parentId: string | null) {
+    must(await sb().rpc('renormalize_demand_order', { p_group_id: groupId, p_parent_id: parentId }));
+  },
+  /* IA */
+  async setAiKey(key: string, model: string | null) {
+    return must(await sb().rpc('set_ai_key', { p_key: key, p_model: model })) as string;
+  },
+  async setAiModel(model: string | null) {
+    must(await sb().rpc('set_ai_model', { p_model: model }));
+  },
+  async clearAiKey() {
+    must(await sb().rpc('clear_ai_key'));
+  },
+  async testAi() {
+    return invokeFn<{ ok: boolean; modelo?: string; erro?: string }>({ modo: 'testar' });
+  },
+  async propose(body: { modo: 'criar'; texto?: string; anexos?: { media_type: string; data: string }[] } | { modo: 'refinar'; proposta_atual: unknown; instrucao: string }, signal?: AbortSignal) {
+    return invokeFn<{ proposta: unknown }>(body, signal);
+  },
+  async createFromAI(p: unknown) {
+    return must(await sb().rpc('create_demand_from_ai', { p })) as string;
   },
   /* cronômetro + pomodoro: sempre pelas RPCs, que guardam as regras */
   async startActivity(a: { demandId?: string; free?: string }) {

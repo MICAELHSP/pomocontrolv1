@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { I } from './Icons';
 import { useToast } from './Toast';
-import { api, qk, useInvalidate, useRoutines } from '../data/api';
+import { api, qk, useAiSettings, useInvalidate, useRoutines } from '../data/api';
 import { GROUP_COLORS, isOpen, type Model } from '../data/model';
 import { dayDiff } from '../lib/format';
-import { errMsg, sb } from '../lib/supabase';
+import { errMsg } from '../lib/supabase';
 import { useUI, type View } from '../ui';
 
 const VIEWS: { id: View; label: string; icon: () => React.JSX.Element }[] = [
   { id: 'hoje', label: 'Hoje', icon: I.cal },
+  { id: 'calendario', label: 'Calendário', icon: I.grid },
   { id: 'demandas', label: 'Demandas', icon: I.list },
   { id: 'rotinas', label: 'Rotinas', icon: I.repeat },
   { id: 'foco', label: 'Foco', icon: I.timer },
@@ -17,6 +18,8 @@ const VIEWS: { id: View; label: string; icon: () => React.JSX.Element }[] = [
 export function Nav({ m }: { m: Model }) {
   const ui = useUI();
   const routines = useRoutines();
+  const ai = useAiSettings();
+  const noKey = ai.isSuccess && !ai.data?.key_hint;
   const toast = useToast();
   const invalidate = useInvalidate();
   const [adding, setAdding] = useState(false);
@@ -27,6 +30,8 @@ export function Nav({ m }: { m: Model }) {
     demandas: open.filter((d) => !d.parent_id).length,
     rotinas: (routines.data ?? []).filter((r) => r.active).length,
     foco: '',
+    calendario: '',
+    config: '',
   };
 
   async function addGroup(e: React.FormEvent) {
@@ -68,7 +73,10 @@ export function Nav({ m }: { m: Model }) {
         </div>
       </div>
       <div className="navfoot">
-        <button className="navbtn" onClick={() => sb().auth.signOut()} title="Sair da conta"><I.out />Sair</button>
+        <button className="navbtn" aria-current={ui.view === 'config' ? 'page' : undefined} onClick={() => ui.openConfig(noKey ? 'ia' : ui.cfgTab)}>
+          <I.gear />Configurações
+          {noKey && <span className="count"><span className="dot" style={{ background: 'var(--warn)' }} title="IA sem chave" /></span>}
+        </button>
       </div>
     </nav>
   );
