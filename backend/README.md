@@ -17,6 +17,7 @@ Cada linha tem `owner_id` (usuário do Supabase Auth) e o RLS garante que cada u
 | `routine_checklist_items` | Checklist padrão copiado para cada ocorrência da rotina |
 | `pomodoro_settings` | 25/5/15, ciclos, usar pomodoro, `pause_demand_on_break`, `on_switch` (`continue` ou `restart`) |
 | `pomodoros` | O ritmo, independente de demanda: cada fase (foco, intervalo, pausa longa), ciclo, início/fim, `completed`/`interrupted`; fila "Próximo: …" no intervalo |
+| `ai_settings` | Configuração de IA por usuário: provedor, modelo, final da chave e referência ao segredo no Vault (sem escrita direta pelo app) |
 | `time_entries` | Sessões de tempo de uma demanda **ou** atividade livre (`free_activity`, ex.: E-mails). `pomodoro_id` = foco em que aconteceu (um foco pode ter várias). `ended_at` nulo = rodando |
 
 Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em foco, pomodoros, checklist, bloqueios), `pomodoro_breakdown` (cada pomodoro com as atividades dentro dele: "Este foco" e "Pomodoros de hoje") e `daily_time` (tempo por dia e atividade).
@@ -36,13 +37,14 @@ Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em fo
 - `stop_activity()` para a atividade ("Parar e gravar").
 - `start_pomodoro(p_kind, p_cycle)` inicia foco/intervalo/pausa longa, encerrando a fase anterior (concluída se cumpriu o tempo, senão interrompida). No intervalo a atividade vai para a fila; no foco seguinte ela é retomada.
 - `create_demand_from_ai(p jsonb)` grava a proposta revisada da captura com IA (demanda, checklist, subtarefas, dependências e histórico) numa transação só; formato em `/mnt/project-files/ia/README.md`.
+- `set_ai_key(p_key, p_model)`, `set_ai_model(p_model)`, `clear_ai_key()` guardam, trocam e apagam a chave do Gemini do usuário no Supabase Vault. O app só vê o final da chave (`ai_settings.key_hint`); a leitura (`get_ai_key`) é exclusiva da service role, usada pela Edge Function.
 - `finish_pomodoro(p_status)` encerra a fase atual (ex.: "Pular fase"); a atividade segue rodando fora do pomodoro.
 
 No cliente: `supabase.schema('demandas_app').rpc('start_activity', { p_demand_id })`.
 
 ## Onde está aplicado
 
-Migrations 1 a 5 aplicadas em 2026-09-30 no projeto **central-gerencial-prod** (`xwdvbzexezsnwvattgnv`), que não é usado pela CG.
+Migrations 1 a 6 aplicadas em 2026-09-30 no projeto **central-gerencial-prod** (`xwdvbzexezsnwvattgnv`), que não é usado pela CG.
 Não aplicar no `central-gerencial-dev`: é o banco que a CG usa de verdade.
 
 - URL: `https://xwdvbzexezsnwvattgnv.supabase.co`

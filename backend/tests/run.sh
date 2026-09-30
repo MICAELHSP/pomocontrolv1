@@ -8,7 +8,7 @@ T="${PGURL%/*}/demandas_test"
 for t in tests/[1-9]*_test.sql; do
   echo "== $t"
   psql "$PGURL" -v ON_ERROR_STOP=1 -q -c "drop database if exists demandas_test" -c "create database demandas_test"
-  psql "$T" -v ON_ERROR_STOP=1 -q -f tests/00_supabase_stub.sql
+  for s in tests/0*_stub.sql; do psql "$T" -v ON_ERROR_STOP=1 -q -f "$s"; done
   for f in migrations/*.sql; do psql "$T" -v ON_ERROR_STOP=1 -q -f "$f"; done
   psql "$T" -v ON_ERROR_STOP=1 -q -f "$t"
 done
