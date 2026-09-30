@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { I } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import { api, qk, useAiSettings, useInvalidate } from '../data/api';
-import { WD } from '../lib/format';
-import { DEFAULT_JORNADA, jornadaMinutes, loadJornada, saveJornada, type Jornada } from '../lib/jornada';
 import { clearConn, errMsg, getConn, sb } from '../lib/supabase';
 import { useUI, type CfgTab } from '../ui';
+import { CalendarioSettings } from './CalendarioSettings';
+import { JornadaSettings } from './JornadaSettings';
 
 export const DEFAULT_MODEL = 'gemini-3.8-flash';
-const hmin = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`);
 
 export function Configuracoes() {
   const ui = useUI();
@@ -22,8 +21,8 @@ export function Configuracoes() {
         {tabs.map(([k, l, on]) => <button key={k} disabled={!on} aria-current={ui.cfgTab === k} onClick={() => ui.setCfgTab(k)}>{l}</button>)}
       </nav>
       {ui.cfgTab === 'ia' && <IaPanel />}
-      {ui.cfgTab === 'jornada' && <JornadaPanel />}
-      {ui.cfgTab === 'outlook' && <OutlookPanel />}
+      {ui.cfgTab === 'jornada' && <section className="panel"><JornadaSettings /></section>}
+      {ui.cfgTab === 'outlook' && <section className="panel"><h3 className="cfgh">Calendário (Outlook)</h3><CalendarioSettings /></section>}
       {ui.cfgTab === 'conta' && <ContaPanel />}
     </div>
   );
@@ -114,40 +113,6 @@ function IaPanel() {
       </div>
       <p className="note">A chave vai criptografada para o Supabase Vault e não pode ser lida de volta pelo app, só trocada ou removida.</p>
       <p className="fine">No plano gratuito, o Google pode usar o que você envia para melhorar os produtos dele. Não envie documentos sigilosos.</p>
-    </section>
-  );
-}
-
-function JornadaPanel() {
-  const [j, setJ] = useState<Jornada>(() => loadJornada());
-  const set = (p: Partial<Jornada>) => { const n = { ...j, ...p }; setJ(n); saveJornada(n); };
-  return (
-    <section className="panel stack" style={{ gap: 16 }}>
-      <div><h3 className="cfgh">Jornada de trabalho</h3><p className="note">Base para calcular a ocupação de cada dia no Calendário. Fica salva neste computador.</p></div>
-      <div className="form" style={{ gridTemplateColumns: 'repeat(3,minmax(0,1fr))' }}>
-        <label className="field"><span>Início</span><input className="input mono" type="time" value={j.start} onChange={(e) => e.target.value && set({ start: e.target.value })} /></label>
-        <label className="field"><span>Fim</span><input className="input mono" type="time" value={j.end} onChange={(e) => e.target.value && set({ end: e.target.value })} /></label>
-        <label className="field"><span>Almoço (min)</span><input className="input mono" type="number" min={0} max={240} value={j.lunch}
-          onChange={(e) => set({ lunch: Math.min(240, Math.max(0, +e.target.value || 0)) })} /></label>
-      </div>
-      <div className="field"><span>Dias de trabalho</span>
-        <div className="days">{[1, 2, 3, 4, 5, 6, 0].map((i) => {
-          const on = j.days.includes(i);
-          return <button key={i} aria-pressed={on} onClick={() => set({ days: on ? j.days.filter((x) => x !== i) : [...j.days, i] })}>{WD[i]}</button>;
-        })}</div>
-      </div>
-      <div className="sentence">Jornada de {hmin(jornadaMinutes(j))} por dia</div>
-      <div className="ai-row"><button className="btn ghost" onClick={() => { setJ(DEFAULT_JORNADA); saveJornada(DEFAULT_JORNADA); }}>Voltar ao padrão (08:00–17:00, 1h de almoço)</button></div>
-      <p className="note">Feriados nacionais ficam fora da jornada automaticamente.</p>
-    </section>
-  );
-}
-
-function OutlookPanel() {
-  return (
-    <section className="panel stack" style={{ gap: 12 }}>
-      <div><h3 className="cfgh">Calendário (Outlook)</h3>
-        <p className="note">A ligação com o calendário do Outlook está sendo feita em separado. Quando chegar, as reuniões aparecem na agenda de Hoje, no Calendário e no alerta de conflito de prazo.</p></div>
     </section>
   );
 }

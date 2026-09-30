@@ -8,6 +8,7 @@ export const I = {
   pause: P(<path d="M8 5v14M16 5v14" />),
   stop: P(<rect x="6" y="6" width="12" height="12" rx="1.5" />),
   skip: P(<path d="M6 5l9 7-9 7zM18 5v14" />),
+  grid: P(<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 4v17M13 4v17M3 14h18" /></>),
   check: P(<path d="M5 12l5 5 9-10" />),
   lock: P(<><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></>),
   x: P(<path d="M6 6l12 12M18 6L6 18" />),
@@ -26,7 +27,6 @@ export const I = {
   eye: P(<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>),
   eyeoff: P(<path d="M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4M6.6 6.6A17 17 0 002 12s3.5 7 10 7a9.7 9.7 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2" />),
   grip: () => <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="2.5" r="1.1" /><circle cx="8" cy="2.5" r="1.1" /><circle cx="4" cy="6" r="1.1" /><circle cx="8" cy="6" r="1.1" /><circle cx="4" cy="9.5" r="1.1" /><circle cx="8" cy="9.5" r="1.1" /></svg>,
-  grid: P(<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 4v17M13 4v17M3 14h18" /></>),
   up: P(<path d="M12 19V5M6 11l6-6 6 6" />),
   down: P(<path d="M12 5v14M6 13l6 6 6-6" />),
 };

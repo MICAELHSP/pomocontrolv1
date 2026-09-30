@@ -19,7 +19,6 @@ export const qk = {
   settings: ['settings'] as const,
   timer: ['timer'] as const,
   ai: ['ai'] as const,
-  range: (from: string, to: string) => ['range', from, to] as const,
 };
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -119,19 +118,6 @@ export const useAiSettings = () => useQuery({
   queryFn: async () => must(await sb().from('ai_settings').select('provider, model, key_hint, updated_at').maybeSingle()) as AiSettings | null,
 });
 
-/** Trechos de tempo e pomodoros entre duas datas (inclusive), para o Calendário. */
-export const useRange = (from: string, to: string) => useQuery({
-  queryKey: qk.range(from, to),
-  queryFn: async () => {
-    const a = new Date(from + 'T00:00:00'), b = new Date(to + 'T00:00:00');
-    b.setDate(b.getDate() + 1);
-    return must(await sb().from('time_entries').select('*')
-      .lt('started_at', b.toISOString())
-      .or(`ended_at.gte.${a.toISOString()},ended_at.is.null`)
-      .order('started_at')) as TimeEntry[];
-  },
-});
-
 /** Erro de Edge Function com a mensagem que ela devolveu em { erro }. */
 async function fnError(error: unknown): Promise<Error> {
   const ctx = (error as { context?: Response }).context;
@@ -151,6 +137,16 @@ async function invokeFn<T>(body: unknown, signal?: AbortSignal): Promise<T> {
   if ((data as { erro?: string })?.erro) throw new Error((data as { erro: string }).erro);
   return data as T;
 }
+
+/** Sessões de tempo que tocam o intervalo [from, to) (Calendário). */
+export const useEntriesBetween = (from: Date, to: Date) => useQuery({
+  queryKey: ['entries', from.toISOString(), to.toISOString()],
+  refetchInterval: 60_000,
+  queryFn: async () => must(await sb().from('time_entries').select('*')
+    .lt('started_at', to.toISOString())
+    .or(`ended_at.gte.${from.toISOString()},ended_at.is.null`)
+    .order('started_at')) as TimeEntry[],
+});
 
 /* ------------------------------ escritas ------------------------------ */
 

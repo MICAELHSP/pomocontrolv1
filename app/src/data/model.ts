@@ -1,19 +1,18 @@
 // Visão derivada das demandas: mapas, subtarefas, bloqueios.
 import { useMemo } from 'react';
 import { useDemands, useDeps, useGroups, useTypes } from './api';
-import type { DemandOverview, Group, Meeting } from '../lib/types';
+import { useCalendar } from '../lib/outlook';
+import type { DemandOverview, Group } from '../lib/types';
 
 export const GROUP_COLORS = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--g4)'];
 export const isOpen = (d: { status: string }) => d.status !== 'done' && d.status !== 'canceled';
-
-/** Reuniões do dia. Vazio até a integração com o Outlook (fase 4). */
-export const MEETINGS: Meeting[] = [];
 
 export function useModel() {
   const demandsQ = useDemands();
   const depsQ = useDeps();
   const groupsQ = useGroups();
   const typesQ = useTypes();
+  const cal = useCalendar();
   return useMemo(() => {
     const demands = demandsQ.data ?? [];
     const deps = depsQ.data ?? [];
@@ -37,7 +36,9 @@ export function useModel() {
       loading: demandsQ.isLoading || groupsQ.isLoading,
       error: demandsQ.error || depsQ.error || groupsQ.error || typesQ.error,
       demands, deps, groups, types, byId, groupById, children, depsOf, openDeps, blockers, groupColor, colorOf,
+      /** Calendário do Outlook; meetingsOn('yyyy-mm-dd') dá as reuniões do dia. */
+      cal, meetingsOn: cal.meetingsOn,
     };
-  }, [demandsQ.data, depsQ.data, groupsQ.data, typesQ.data, demandsQ.isLoading, groupsQ.isLoading, demandsQ.error, depsQ.error, groupsQ.error, typesQ.error]);
+  }, [demandsQ.data, depsQ.data, groupsQ.data, typesQ.data, demandsQ.isLoading, groupsQ.isLoading, demandsQ.error, depsQ.error, groupsQ.error, typesQ.error, cal]);
 }
 export type Model = ReturnType<typeof useModel>;

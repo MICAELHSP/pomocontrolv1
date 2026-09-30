@@ -1,43 +1,52 @@
 import { describe, expect, it } from 'vitest';
-import { dayStats, meetingMinutes, mondayOf, occLabel, segmentsByDay } from './occupancy';
+import { dayStats, DEFAULT_JORNADA, entriesByDay, holidayOf, hmin, jornadaMinutes } from './occupancy';
 import type { TimeEntry } from './types';
 
-const entry = (s: string, e: string | null, demand: string | null = 'd1'): TimeEntry => ({
-  id: s, demand_id: demand, free_activity: demand ? null : 'Almoço de trabalho', pomodoro_id: null,
-  started_at: new Date(s).toISOString(), ended_at: e && new Date(e).toISOString(), duration_seconds: null, note: null,
+const te = (id: string, demand: string | null, free: string | null, s: Date, e: Date | null): TimeEntry => ({
+  id, demand_id: demand, free_activity: free, pomodoro_id: null, started_at: s.toISOString(), ended_at: e?.toISOString() ?? null, duration_seconds: null, note: null,
+});
+const at = (h: number, m = 0, day = 1) => new Date(2026, 9, day, h, m); // outubro/2026, fuso local
+
+describe('jornada e feriados', () => {
+  it('jornada padrão é 8h', () => expect(jornadaMinutes(DEFAULT_JORNADA)).toBe(480));
+  it('feriados nacionais, inclusive móveis', () => {
+    expect(holidayOf('2026-09-07')).toBe('Independência do Brasil');
+    expect(holidayOf('2026-04-03')).toBe('Sexta-feira Santa'); // Páscoa 2026 = 5/abr
+    expect(holidayOf('2027-03-26')).toBe('Sexta-feira Santa'); // Páscoa 2027 = 28/mar
+    expect(holidayOf('2026-11-20')).toBe('Dia da Consciência Negra');
+    expect(holidayOf('2026-09-30')).toBeNull();
+  });
+  it('hmin', () => { expect(hmin(45)).toBe('45 min'); expect(hmin(120)).toBe('2h'); expect(hmin(125)).toBe('2h 05'); });
 });
 
-describe('ocupação', () => {
-  it('reunião conta só a parte fora do tempo registrado', () => {
-    expect(meetingMinutes([{ s: 540, e: 600 }], [{ s: 570, e: 630 }])).toBe(30);
-    expect(meetingMinutes([{ s: 540, e: 600 }, { s: 550, e: 610 }], [])).toBe(70);
+describe('entriesByDay', () => {
+  it('sessão rodando vai até agora e sessão que vira a noite é dividida', () => {
+    const map = entriesByDay([
+      te('1', 'A', null, at(9), at(10, 30)),
+      te('2', null, 'E-mails', at(23, 0, 1), at(1, 0, 2)),
+      te('3', 'B', null, at(14, 0, 2), null),
+    ], +at(15, 0, 2));
+    expect(map.get('2026-10-01')).toEqual([{ key: 'd:A', start: 540, end: 630 }, { key: 'f:E-mails', start: 1380, end: 1440 }]);
+    expect(map.get('2026-10-02')).toEqual([{ key: 'f:E-mails', start: 0, end: 60 }, { key: 'd:B', start: 840, end: 900 }]);
   });
+});
 
-  it('soma demandas, livres e reuniões sobre a jornada', () => {
-    const segs = segmentsByDay([
-      entry('2026-09-29T08:00', '2026-09-29T10:00'),
-      entry('2026-09-29T13:00', '2026-09-29T14:00', null),
-    ]).get('2026-09-29')!;
-    const st = dayStats(segs, [{ s: 9 * 60, e: 11 * 60 }], 480, () => 'g1');
-    expect(st.dem).toBe(120);
-    expect(st.free).toBe(60);
-    expect(st.meet).toBe(60);
-    expect(st.pct).toBe(50);
-    expect(st.idle).toBe(240);
-    expect(st.byGroup.get('g1')).toBe(120);
-    expect(occLabel(st.pct)).toBe('Com folga');
+describe('dayStats', () => {
+  const groupOf = (id: string) => (id === 'A' ? 'g1' : '');
+  it('reunião conta só o que não coincide com tempo registrado', () => {
+    const st = dayStats('2026-10-01', [
+      { key: 'd:A', start: 540, end: 600 }, // 09:00–10:00
+      { key: 'f:E-mails', start: 600, end: 630 },
+    ], [
+      { title: 'Daily', start: '09:30', end: '10:30' }, // toda sobre tempo registrado
+      { title: 'Outra', start: '10:15', end: '10:45' }, // só 10:30–10:45 fica livre
+    ], DEFAULT_JORNADA, groupOf);
+    expect(st).toMatchObject({ dem: 60, free: 30, meet: 15, used: 105, J: 480, pct: 22, idle: 375 });
+    expect(st.byGroup.get('g1')).toBe(60);
+    expect(st.byKey.get('f:E-mails')).toBe(30);
   });
-
-  it('quebra trecho que passa da meia-noite e usa agora para o que está rodando', () => {
-    const m = segmentsByDay([entry('2026-09-29T23:30', '2026-09-30T00:15')]);
-    expect(m.get('2026-09-29')![0].e - m.get('2026-09-29')![0].s).toBe(30);
-    expect(m.get('2026-09-30')![0].e).toBe(15);
-    const r = segmentsByDay([entry('2026-09-30T08:00', null)], new Date('2026-09-30T08:40').getTime());
-    expect(r.get('2026-09-30')![0].e).toBe(8 * 60 + 40);
-  });
-
-  it('segunda-feira da semana', () => {
-    expect(mondayOf(new Date(2026, 8, 30)).getDate()).toBe(28);
-    expect(mondayOf(new Date(2026, 9, 4)).getDate()).toBe(28);
+  it('fim de semana e feriado não têm jornada', () => {
+    expect(dayStats('2026-10-03', [{ key: 'd:A', start: 600, end: 660 }], [], DEFAULT_JORNADA, groupOf)).toMatchObject({ J: 0, pct: null, used: 60 });
+    expect(dayStats('2026-10-12', [], [], DEFAULT_JORNADA, groupOf).J).toBe(0);
   });
 });

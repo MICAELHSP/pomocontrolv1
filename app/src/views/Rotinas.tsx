@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { I } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import { api, qk, useInvalidate, useRoutines, type RoutineWithItems } from '../data/api';
-import { MEETINGS, type Model } from '../data/model';
+import { type Model } from '../data/model';
 import { meetingAt } from '../lib/conflict';
 import { ddmm, isoDate, shortTime, WD, WDL } from '../lib/format';
 import { describeRule, nextOccurrences } from '../lib/recurrence';
@@ -165,7 +165,7 @@ export function Rotinas({ m, newTick }: { m: Model; newTick: number }) {
             <div className="sect"><h4>Próximas ocorrências</h4>
               <div className="occ">
                 {occ.map((d) => {
-                  const hit = isoDate(d) === isoDate(today) ? meetingAt(draft.due_time, MEETINGS) : null;
+                  const hit = meetingAt(draft.due_time, m.meetingsOn(isoDate(d)));
                   return <div key={isoDate(d)}><span>{WDL[d.getDay()]}, {ddmm(d)}/{d.getFullYear()}</span>
                     <span className="mono">{draft.due_time ?? ''}{hit && <span className="chip conf"><I.warn />{hit.title}</span>}</span></div>;
                 })}
