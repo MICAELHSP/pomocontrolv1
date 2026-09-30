@@ -6,7 +6,8 @@ import { Modal } from '../components/Modal';
 import { useEntriesBetween } from '../data/api';
 import { isOpen, type Model } from '../data/model';
 import { addDays, ddmm, isoDate, MON, parseDate, shortTime, toMinutes, WD, WDL } from '../lib/format';
-import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, useJornada, type DayStats, type Seg } from '../lib/occupancy';
+import { useJornada } from '../data/jornada';
+import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, type DayStats, type Jornada, type Seg } from '../lib/occupancy';
 import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 import type { Meeting } from '../lib/types';
@@ -235,7 +236,7 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues }
 const hmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
 function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onJornada }: {
-  day: Day; j: ReturnType<typeof useJornada>; colorOfKey: (k: string) => string; nameOfKey: (k: string) => string;
+  day: Day; j: Jornada; colorOfKey: (k: string) => string; nameOfKey: (k: string) => string;
   colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onJornada: () => void;
 }) {
   const label = `${cap(WDL[x.d.getDay()])}, ${ddmm(x.d)}`;

@@ -1,7 +1,6 @@
 // Ocupação do dia para o Calendário: tempo registrado + reuniões, sobre a jornada de trabalho.
 // Regra (especificacao-telas.md, item 8): ocupação = (tempo registrado + reuniões que não
 // coincidem com tempo registrado) ÷ jornada. Feriados nacionais ficam fora da jornada.
-import { useSyncExternalStore } from 'react';
 import { addDays, isoDate, toMinutes } from './format';
 import type { Meeting, TimeEntry } from './types';
 
@@ -12,33 +11,6 @@ export interface Jornada { start: string; end: string; lunch: number; days: numb
 export const DEFAULT_JORNADA: Jornada = { start: '08:00', end: '17:00', lunch: 60, days: [1, 2, 3, 4, 5] };
 
 export const jornadaMinutes = (j: Jornada) => Math.max(0, (toMinutes(j.end) ?? 0) - (toMinutes(j.start) ?? 0) - j.lunch);
-
-const LS = 'pauta.jornada';
-const listeners = new Set<() => void>();
-let current: Jornada | null = null;
-
-function read(): Jornada {
-  try {
-    const raw = localStorage.getItem(LS);
-    if (raw) {
-      const j = JSON.parse(raw) as Jornada;
-      if (toMinutes(j.start) != null && toMinutes(j.end) != null && Array.isArray(j.days)) return { ...DEFAULT_JORNADA, ...j };
-    }
-  } catch { /* sem armazenamento */ }
-  return DEFAULT_JORNADA;
-}
-
-export function getJornada(): Jornada { return (current ??= read()); }
-
-export function saveJornada(j: Jornada) {
-  current = j;
-  try { localStorage.setItem(LS, JSON.stringify(j)); } catch { /* fica só nesta sessão */ }
-  listeners.forEach((f) => f());
-}
-
-export function useJornada(): Jornada {
-  return useSyncExternalStore((f) => { listeners.add(f); return () => listeners.delete(f); }, getJornada);
-}
 
 /* ------------------------------ feriados ------------------------------ */
 

@@ -36,3 +36,17 @@ describe('toDayMeetings', () => {
     expect(nextFreeTime('09:10', day)).toBe('10:00');
   });
 });
+
+describe('blocksTime', () => {
+  it('livre e dia inteiro não entram na agenda nem nos conflitos', () => {
+    const d = (h: number) => new Date(2026, 9, 7, h, 0);
+    const base = ev('Reunião', d(9), d(10));
+    const map = toDayMeetings([
+      base,
+      { ...ev('Livre', d(11), d(12)), showAs: 'free' },
+      { ...ev('Feriado', d(0), d(23)), allDay: true },
+      { ...ev('Talvez', d(14), d(15)), showAs: 'tentative' },
+    ]);
+    expect(map.get('2026-10-07')!.map((m) => m.title)).toEqual(['Reunião', 'Talvez']);
+  });
+});

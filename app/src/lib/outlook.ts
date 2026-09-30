@@ -13,6 +13,7 @@ export interface OutlookEvent {
   allDay: boolean;
   showAs: string;
   webLink: string | null;
+  location?: string | null;
 }
 
 export interface OutlookStatus {
@@ -44,10 +45,14 @@ export const calKeys = { status: ['outlook', 'status'] as const, events: ['outlo
 /** Janela lida do Outlook: de ontem até 60 dias à frente. */
 export const WINDOW_BEFORE = 1, WINDOW_AFTER = 61;
 
+/** Ocupa a agenda: eventos "livre" e de dia inteiro não contam (igual a daily_occupancy no banco). */
+export const blocksTime = (e: Pick<OutlookEvent, 'allDay' | 'showAs'>) => !e.allDay && e.showAs !== 'free';
+
 /** Eventos -> reuniões por dia local ("yyyy-mm-dd"), recortando o que passa da meia-noite. */
 export function toDayMeetings(events: OutlookEvent[]): Map<string, Meeting[]> {
   const out = new Map<string, Meeting[]>();
   for (const e of events) {
+    if (!blocksTime(e)) continue;
     const s = new Date(e.start), en = new Date(e.end);
     if (isNaN(+s) || isNaN(+en) || en <= s) continue;
     let day = new Date(s.getFullYear(), s.getMonth(), s.getDate());
