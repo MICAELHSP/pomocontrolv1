@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { I } from '../components/Icons';
 import { Modal } from '../components/Modal';
 import { calKeys, outlook, useCalendar } from '../lib/outlook';
+import { REMINDER_OPTIONS, saveReminderPrefs, useReminderPrefs } from '../lib/reminders';
 import { errMsg } from '../lib/supabase';
 
 const GUIA = 'https://github.com/MICAELHSP/pomocontrolv1/blob/main/docs/outlook.md';
@@ -82,6 +83,25 @@ export function CalendarioSettings() {
         </>
       )}
       {err && <p className="err">{err}</p>}
+      <ReminderSettings />
+    </div>
+  );
+}
+
+function ReminderSettings() {
+  const p = useReminderPrefs();
+  const blocked = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+  return (
+    <div className="cal-ok" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+      <h4 style={{ margin: 0 }}>Aviso antes das reuniões</h4>
+      <label className="toggle"><input type="checkbox" checked={p.enabled} onChange={(e) => saveReminderPrefs({ ...p, enabled: e.target.checked })} /> Mostrar um aviso do Windows antes de cada reunião</label>
+      <label className="field"><span>Avisar com antecedência de</span>
+        <select className="input" value={p.minutes} disabled={!p.enabled} onChange={(e) => saveReminderPrefs({ ...p, minutes: Number(e.target.value) })}>
+          {REMINDER_OPTIONS.map((n) => <option key={n} value={n}>{n} minutos</option>)}
+        </select>
+      </label>
+      {blocked && <p className="cfgbanner">As notificações do Pauta estão bloqueadas no sistema. No Windows: Configurações &gt; Sistema &gt; Notificações &gt; Pauta.</p>}
+      <p className="note">O Pauta precisa estar aberto (pode estar minimizado). Vale para as reuniões do Outlook que aparecem na agenda. Fica guardado neste computador.</p>
     </div>
   );
 }

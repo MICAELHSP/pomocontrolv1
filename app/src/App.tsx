@@ -7,6 +7,7 @@ import { useToast } from './components/Toast';
 import { api, qk, useAiSettings, useInvalidate } from './data/api';
 import { useModel } from './data/model';
 import { errMsg, getConn, sb } from './lib/supabase';
+import { useMeetingReminders } from './lib/reminders';
 import { TimerProvider } from './timer/TimerContext';
 import { UIProvider, useUI } from './ui';
 import { AiCapture } from './views/AiCapture';
@@ -64,6 +65,7 @@ function Shell() {
   const ai = useAiSettings();
   const openAI = () => (ai.isSuccess && !ai.data?.key_hint ? ui.openConfig('ia', true) : ui.setAiOpen(true));
   const [calMode, setCalMode] = useState<CalMode>('semana');
+  useMeetingReminders(m.meetingsOn);
 
   // Ao abrir (e a cada 6 h): gera as ocorrências das rotinas para os próximos dias.
   useEffect(() => {

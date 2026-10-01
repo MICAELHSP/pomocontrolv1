@@ -77,7 +77,7 @@ export function toDayMeetings(events: OutlookEvent[]): Map<string, Meeting[]> {
       const am = Math.round((+a - +day) / 60000), bm = Math.round((+b - +day) / 60000);
       if (bm > am) {
         const key = isoDate(day);
-        out.set(key, [...(out.get(key) ?? []), { id: e.id, title: e.title, date: key, start: hm(am), end: hm(bm), webLink: e.webLink }]);
+        out.set(key, [...(out.get(key) ?? []), { id: e.id, title: e.title, date: key, start: hm(am), end: hm(bm), webLink: e.webLink, location: e.location ?? null }]);
       }
       day = next;
     }
