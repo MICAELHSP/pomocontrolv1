@@ -1,7 +1,7 @@
 name: release
 
 # Gera o instalador do Windows (Pauta-Setup-x.y.z.exe) e anexa numa Release do GitHub.
-# Dispara ao enviar uma tag vX.Y.Z (ex.: git tag v1.0.0 && git push origin v1.0.0) ou manualmente.
+# Dispara ao enviar uma tag vX.Y.Z ou manualmente (Actions > release > Run workflow), que cria a tag da versão do package.json.
 # Opcional: segredos VITE_SUPABASE_URL e VITE_SUPABASE_KEY deixam o endereço do Supabase já embutido;
 # sem eles, o app pede os dois na primeira abertura.
 
@@ -32,6 +32,17 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
+      # Execução manual: cria a tag vX.Y.Z (versão do package.json), porque a Release precisa de uma tag.
+      - name: Criar tag da versão
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$v" >/dev/null; then
+            echo "Tag $v já existe."
+          else
+            git tag "$v" && git push origin "refs/tags/$v"
+          fi
       - run: npx electron-builder --win nsis --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
