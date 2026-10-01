@@ -229,6 +229,10 @@ export const api = {
   async clearAiKey() {
     must(await sb().rpc('clear_ai_key'));
   },
+  /** Modelos do Gemini que a chave salva pode usar (a lista vem do Google, pela Edge Function). */
+  async listAiModels() {
+    return invokeFn<{ ok: boolean; modelos?: { id: string; nome: string }[]; atual?: string | null; erro?: string }>({ modo: 'modelos' });
+  },
   async testAi() {
     return invokeFn<{ ok: boolean; modelo?: string; erro?: string }>({ modo: 'testar' });
   },

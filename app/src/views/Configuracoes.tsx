@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { I } from '../components/Icons';
 import { useToast } from '../components/Toast';
 import { api, qk, useAiSettings, useInvalidate } from '../data/api';
@@ -43,6 +43,24 @@ function IaPanel() {
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [confirmDel, setConfirmDel] = useState(false);
   const keyRef = useRef<HTMLInputElement>(null);
+  const [models, setModels] = useState<{ id: string; nome: string }[] | null>(null);
+  const [modelsErr, setModelsErr] = useState<string | null>(null);
+
+  // Com a chave salva, busca os modelos disponíveis para escolher numa lista.
+  const loadModels = useCallback(async () => {
+    try {
+      const r = await api.listAiModels();
+      if (r.ok && r.modelos?.length) { setModels(r.modelos); setModelsErr(null); if (r.atual) setModel(r.atual); }
+      else { setModels(null); setModelsErr(r.erro ?? 'Não deu para listar os modelos.'); }
+    } catch (e) { setModels(null); setModelsErr(errMsg(e)); }
+  }, []);
+  useEffect(() => { if (saved?.key_hint) loadModels(); }, [saved?.key_hint, saved?.updated_at, loadModels]);
+
+  async function pickModel(id: string) {
+    setModel(id);
+    if (!saved) return;
+    try { await api.setAiModel(id); await invalidate(qk.ai); toast('Modelo trocado.'); } catch (e) { toast(errMsg(e)); }
+  }
 
   useEffect(() => { if (saved?.model) setModel(saved.model); }, [saved?.model]);
 
@@ -106,7 +124,14 @@ function IaPanel() {
           </span>
           <a className="link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Onde pego a chave?</a>
         </label>
-        <label className="field"><span>Modelo (opcional)</span><input className="input mono" value={model} onChange={(e) => setModel(e.target.value)} placeholder={DEFAULT_MODEL} /></label>
+        {models
+          ? <label className="field"><span>Modelo</span>
+              <select className="input" value={model} onChange={(e) => pickModel(e.target.value)} aria-label="Modelo do Gemini">
+                {!models.some((x) => x.id === model) && <option value={model}>{model}</option>}
+                {models.map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}
+              </select></label>
+          : <label className="field"><span>Modelo (opcional)</span><input className="input mono" value={model} onChange={(e) => setModel(e.target.value)} placeholder={DEFAULT_MODEL} />
+              {saved && modelsErr && <span className="note">Lista de modelos indisponível: {modelsErr}</span>}</label>}
       </div>
       <div className="ai-row">
         <button className="btn primary" disabled={!key.trim() || testing} onClick={save}>{testing ? <><span className="spin" />Testando…</> : 'Salvar e testar'}</button>
