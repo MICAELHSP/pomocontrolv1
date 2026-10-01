@@ -49,7 +49,7 @@ export function Mini() {
         <span className="mini-task" title={t.actName(t.current)}>{t.queued ? 'Próximo: ' : ''}{t.actName(t.current)}</span>
         <span className="mini-swap" ref={pickRef}>
           <button className="mini-ic" disabled={t.busy} onClick={openPicker} title="Trocar tarefa sem parar o pomodoro" aria-label="Trocar tarefa"><I.swap /></button>
-          <ActivityPicker m={m} value={t.current} placeholder="Trocar para…" className="mini-select" title="Trocar tarefa" onPick={(a) => t.start(a)} />
+          <ActivityPicker m={m} value={t.current} placeholder="Trocar para…" className="mini-select" title="Trocar tarefa" compact onPick={(a) => t.start(a)} />
         </span>
       </div>
     </div>

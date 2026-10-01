@@ -93,13 +93,16 @@ export interface DayStats {
  * Minutos por tipo no dia. Demandas e livres somam o registrado; reunião conta só os
  * minutos sem tempo registrado (e reuniões sobrepostas contam uma vez).
  */
-export function dayStats(date: string, segs: Seg[], meetings: Meeting[], j: Jornada, groupOf: (demandId: string) => string): DayStats {
-  let dem = 0, free = 0;
+export function dayStats(date: string, segs: Seg[], meetings: Meeting[], j: Jornada, groupOf: (demandId: string) => string,
+  isMeetingKey: (key: string) => boolean = () => false): DayStats {
+  let dem = 0, free = 0, meet = 0;
   const byKey = new Map<string, number>(), byGroup = new Map<string, number>();
   const busy = new Uint8Array(1440);
   for (const s of segs) {
     const v = s.end - s.start;
-    if (s.key.startsWith('d:')) {
+    // Demanda-reunião (ou "Reunião não planejada") conta como reunião, não como demanda.
+    if (isMeetingKey(s.key)) meet += v;
+    else if (s.key.startsWith('d:')) {
       dem += v;
       const g = groupOf(s.key.slice(2));
       byGroup.set(g, (byGroup.get(g) ?? 0) + v);
@@ -107,7 +110,6 @@ export function dayStats(date: string, segs: Seg[], meetings: Meeting[], j: Jorn
     byKey.set(s.key, (byKey.get(s.key) ?? 0) + v);
     busy.fill(1, s.start, s.end);
   }
-  let meet = 0;
   for (const m of meetings) {
     const a = toMinutes(m.start)!, b = Math.min(toMinutes(m.end)!, 1440);
     for (let x = a; x < b; x++) if (!busy[x]) { busy[x] = 2; meet++; }

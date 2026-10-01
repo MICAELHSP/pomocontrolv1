@@ -127,9 +127,10 @@ export function Detail({ m }: { m: Model }) {
               {PRI.map((l, i) => <option key={i} value={i}>{l}</option>)}
             </select>
           </dd>
-          <dt>Referência</dt>
+          <dt>{m.isMeeting(d) ? 'Com quem' : 'Referência'}</dt>
           <dd>
-            <input className="input" defaultValue={d.external_ref ?? ''} key={d.id + (d.external_ref ?? '')} placeholder="Nº do processo, link…" aria-label="Referência externa"
+            <input className="input" defaultValue={d.external_ref ?? ''} key={d.id + (d.external_ref ?? '')}
+              placeholder={m.isMeeting(d) ? 'Pessoas ou equipe' : 'Nº do processo, link…'} aria-label={m.isMeeting(d) ? 'Com quem' : 'Referência externa'}
               onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== d.external_ref) patch({ external_ref: v }); }} />
           </dd>
           {parent && <><dt>Faz parte de</dt><dd><button className="btn ghost" style={{ padding: 0 }} onClick={() => ui.open(parent.id)}>{parent.title}</button></dd></>}

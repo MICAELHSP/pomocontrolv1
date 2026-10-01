@@ -43,6 +43,20 @@ jobs:
           else
             git tag "$v" && git push origin "refs/tags/$v"
           fi
+      # Cria a Release antes do electron-builder: senão ele envia o .exe e o .blockmap ao mesmo tempo,
+      # cria duas Releases com a mesma tag e o link de download pode cair na que só tem o .blockmap.
+      # Também apaga Releases duplicadas que ficaram só com o .blockmap (versões 1.1.x).
+      - name: Preparar a Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v="v$(node -p "require('./package.json').version")"
+          gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '[.[] | {id, tag: .tag_name, n: ([.assets[].name] | length), onlymap: ([.assets[].name] | all(endswith(".blockmap")))}]
+                  | group_by(.tag)[] | select(length > 1) | .[] | select(.onlymap) | .id' |
+            while read -r id; do echo "Apagando Release duplicada $id"; gh api -X DELETE "repos/${{ github.repository }}/releases/$id"; done
+          gh release view "$v" >/dev/null 2>&1 || gh release create "$v" --title "${v#v}" --notes "" --verify-tag
       - run: npx electron-builder --win nsis --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -65,13 +65,13 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
   const segsByDay = useMemo(() => entriesByDay(entriesQ.data ?? [], t.now), [entriesQ.data, t.now]);
 
   const groupOf = (id: string) => m.byId.get(id)?.group_id ?? '';
-  const colorOfKey = (key: string) => (key.startsWith('d:') ? m.colorOf(m.byId.get(key.slice(2))) : 'var(--muted)');
+  const colorOfKey = (key: string) => (m.isMeetingKey(key) ? 'var(--meet)' : key.startsWith('d:') ? m.colorOf(m.byId.get(key.slice(2))) : 'var(--muted)');
   const nameOfKey = (key: string) => (key.startsWith('d:') ? m.byId.get(key.slice(2))?.title ?? 'Demanda removida' : key.slice(2) || 'Atividade livre');
   const colorOfGroup = (g: string) => (g ? m.groupColor(m.groupById.get(g), m.groups.findIndex((x) => x.id === g)) : 'var(--muted)');
 
   const day = (d: Date): Day => {
     const k = isoDate(d), segs = segsByDay.get(k) ?? EMPTY, meetings = cal.meetingsOn(k);
-    return { k, d, segs, meetings, st: dayStats(k, segs, meetings, j, groupOf), hol: holidayOf(k), future: k > todayK, today: k === todayK };
+    return { k, d, segs, meetings, st: dayStats(k, segs, meetings, j, groupOf, m.isMeetingKey), hol: holidayOf(k), future: k > todayK, today: k === todayK };
   };
 
   const dues = (k: string) => m.demands.filter((d) => isOpen(d) && d.due_date === k && d.due_time);
