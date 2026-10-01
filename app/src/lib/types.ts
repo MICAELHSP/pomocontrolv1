@@ -129,6 +129,10 @@ export interface Pomodoro {
   status: PomodoroStatus;
   queued_demand_id: string | null;
   queued_free_activity: string | null;
+  /** fase pausada desde (null = correndo) */
+  paused_at?: string | null;
+  /** segundos de pausas anteriores desta fase */
+  paused_seconds?: number;
 }
 
 export interface TimeEntry {

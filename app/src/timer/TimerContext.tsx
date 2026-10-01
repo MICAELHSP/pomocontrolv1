@@ -24,6 +24,8 @@ interface TimerCtx {
   /** atividade está na fila do intervalo ("Próximo: …") */
   queued: boolean;
   running: boolean;
+  /** fase do pomodoro pausada (o tempo que falta fica parado) */
+  paused: boolean;
   sessionSeconds: number;
   remaining: number;
   label: string;
@@ -97,7 +99,8 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
   const last = entries.length ? entries[entries.length - 1] : null;
   const current: Act | null = entry ? actOf(entry) : queuedAct ?? paused ?? (last ? actOf(last) : null);
   const queued = !entry && !!queuedAct;
-  const running = !!entry || !!pomodoro;
+  const phasePaused = !!pomodoro?.paused_at;
+  const running = (!!entry || !!pomodoro) && !phasePaused;
 
   // Sessão = trechos seguidos da mesma atividade (o foco novo reabre o trecho).
   const sessionSeconds = useMemo(() => {
@@ -117,7 +120,7 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
   }, [entry, entries, now]);
 
   const remaining = pomodoro ? remainingSeconds(pomodoro, now) : settings.focus_minutes * 60;
-  const label = pomodoro ? phaseLabel(pomodoro.kind, pomodoro.cycle, settings.cycles_before_long) : 'Pomodoro parado';
+  const label = pomodoro ? phaseLabel(pomodoro.kind, pomodoro.cycle, settings.cycles_before_long) + (phasePaused ? ' (pausado)' : '') : 'Pomodoro parado';
 
   const refresh = useCallback(() => invalidate(qk.timer, qk.demands), [invalidate]);
 
@@ -139,6 +142,7 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
     const prev = entry ? actOf(entry) : null;
     const switching = !!prev && !sameAct(prev, a);
     let p = pomodoro;
+    if (p?.paused_at) p = (await api.resumePomodoro()) ?? p;
     if (settings.enabled && !p) p = await api.startPomodoro('focus', nextFocusCycle());
     const res = await api.startActivity(a);
     setPaused(null);
@@ -151,11 +155,11 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
     }
   }), [run, entry, pomodoro, settings, nextFocusCycle, actName, toast]);
 
-  // Pausar: grava o trecho e interrompe a fase (um pomodoro não se divide no tempo).
+  // Pausar: grava o trecho e congela a fase com o tempo que falta. Só o Parar zera o pomodoro.
   const pause = useCallback(() => run(async () => {
     if (current) setPaused(current);
-    await api.stopActivity();
-    if (pomodoro) await api.finishPomodoro('interrupted');
+    if (pomodoro) await api.pausePomodoro();
+    else await api.stopActivity();
   }), [run, current, pomodoro]);
 
   const resume = useCallback(async () => {
@@ -206,7 +210,7 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
   }, [entry, demandsQ.dataUpdatedAt, now]);
 
   const value: TimerCtx = {
-    now, settings, entry, pomodoro, entries, pomodoros, current, queued, running,
+    now, settings, entry, pomodoro, entries, pomodoros, current, queued, running, paused: phasePaused,
     sessionSeconds, remaining, label, busy, start, pause, resume, stop, skip, liveExtra, actName,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

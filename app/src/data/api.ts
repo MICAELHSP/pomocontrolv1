@@ -251,4 +251,11 @@ export const api = {
   async finishPomodoro(status: PomodoroStatus | null) {
     return must(await sb().rpc('finish_pomodoro', { p_status: status })) as Pomodoro | null;
   },
+  /** Congela a fase (e fecha o trecho de tempo) sem encerrá-la. */
+  async pausePomodoro() {
+    return must(await sb().rpc('pause_pomodoro')) as Pomodoro | null;
+  },
+  async resumePomodoro() {
+    return must(await sb().rpc('resume_pomodoro')) as Pomodoro | null;
+  },
 };

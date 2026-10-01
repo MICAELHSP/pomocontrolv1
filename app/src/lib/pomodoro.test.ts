@@ -41,6 +41,12 @@ describe('divisão do foco entre atividades', () => {
   it('tempo restante da fase', () => {
     expect(remainingSeconds({ planned_minutes: 25, started_at: at(0) }, t0 + 60000)).toBe(24 * 60);
   });
+  it('tempo pausado não conta: a fase fica parada e retoma de onde estava', () => {
+    // começou há 10 min, pausou aos 4 min (pausa em curso)
+    expect(remainingSeconds({ planned_minutes: 25, started_at: at(0), paused_at: at(4), paused_seconds: 0 }, t0 + 600000)).toBe(21 * 60);
+    // já retomado, com 6 min de pausas anteriores
+    expect(remainingSeconds({ planned_minutes: 25, started_at: at(0), paused_at: null, paused_seconds: 360 }, t0 + 600000)).toBe(21 * 60);
+  });
 });
 
 describe('conflito com reunião', () => {
