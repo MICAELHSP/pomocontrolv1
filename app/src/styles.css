@@ -168,6 +168,7 @@ button{cursor:pointer}
 .tl .ev.meet{background:repeating-linear-gradient(135deg,var(--meet-soft) 0 8px,var(--surface) 8px 10px);border-color:var(--meet);color:var(--fg);cursor:default}
 .tl .ev.meet b{color:var(--meet)}
 .tl .ev.blk{background:var(--accent-soft);border-color:var(--accent)}
+.tl .ev.work{background:var(--surface-2,var(--bg));border-color:var(--line,transparent);border-left:4px solid var(--muted);opacity:.95}
 .tl .due{position:absolute;left:-6px;right:0;height:0;border-top:2px solid var(--warn);z-index:2}
 .tl .due span{position:absolute;right:6px;top:-11px;font-size:11px;font-weight:600;background:var(--warn);color:var(--surface);padding:0 6px;border-radius:4px;white-space:nowrap}
 .tl .due.conf{border-color:var(--danger)}
