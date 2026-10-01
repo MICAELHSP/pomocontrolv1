@@ -84,7 +84,8 @@ Tratamento da resposta (em `index.ts`):
 - Bloqueio de conteúdo (`promptFeedback.blockReason`, `finishReason` `SAFETY` ou `PROHIBITED_CONTENT`): 422 "A IA não processou esse conteúdo. Crie a demanda manualmente."
 - `finishReason = "MAX_TOKENS"`: 422 pedindo um trecho menor.
 - Sem chave nenhuma: 412 "Configure a chave do Gemini em Configurações > Inteligência artificial."
-- 429 (limite do nível gratuito): 429 para o app ("tente em alguns minutos"). 400/403 (chave errada): 502 com o detalhe nos logs da função. Outros erros: 502.
+- Sobrecarga (503/500) ou limite (429): a função repete no mesmo modelo após 1,5 s e 4 s; se continuar, tenta os modelos reserva (`gemini-2.5-flash`, `gemini-2.5-flash-lite`, ou o segredo `GEMINI_MODELOS_RESERVA`). Um modelo inexistente (404) também passa para a reserva. `uso.modelo` diz qual modelo respondeu. Se todos falharem, devolve a mensagem do modelo escolhido (429 para limite, 502 para sobrecarga).
+- 400/401/403 (chave errada ou pedido inválido): não troca de modelo; 502 com o detalhe nos logs da função. Outros erros: 502.
 - Partes marcadas como `thought` (raciocínio) são descartadas; a proposta é o texto restante.
 - A função `validar()` aplica o que o JSON schema não expressa: até 8 subtarefas, 12 itens por checklist, 3 perguntas; datas e horas válidas (sem data não há hora); estimativa positiva; `ref` únicos; remove dependências para `ref` inexistente e quebra ciclos (o banco recusaria).
 - Depois resolve `type_name` e `group_path` para `type_id` e `group_id` comparando com os existentes sem diferenciar maiúsculas. Se não achar, o id vem `null` e o app mostra o nome como "novo".

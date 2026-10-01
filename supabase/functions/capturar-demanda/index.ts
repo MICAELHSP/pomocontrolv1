@@ -11,6 +11,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { PROPOSTA_SCHEMA, SYSTEM_PROMPT } from "./prompt.ts";
 
 const MODELO_PADRAO = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
+// Usados, nesta ordem, quando o modelo escolhido está sobrecarregado ou no limite.
+const MODELOS_RESERVA = (Deno.env.get("GEMINI_MODELOS_RESERVA") ?? "gemini-2.5-flash,gemini-2.5-flash-lite")
+  .split(",").map((m) => m.trim()).filter(Boolean);
+const TEMPORARIO = new Set([429, 500, 503]);
+const ESPERAS_MS = [1500, 4000]; // espera antes de cada nova tentativa no mesmo modelo
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const TIMEZONE = "America/Sao_Paulo";
 const MAX_TEXTO = 60_000; // caracteres
@@ -197,9 +202,11 @@ Deno.serve(async (req) => {
 
   // 5. Chamada ao Gemini com saída em JSON no formato da proposta. Se o modelo
   // recusar o schema, tenta de novo só com JSON e o schema descrito no texto
-  // (validar() abaixo cuida do que vier fora do formato).
-  const chamar = (comSchema: boolean) =>
-    fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
+  // (validar() abaixo cuida do que vier fora do formato). Se o Google estiver
+  // sobrecarregado (503/500) ou no limite (429), espera e repete; persistindo,
+  // passa para os modelos reserva antes de devolver erro.
+  const chamar = (modelo: string, comSchema: boolean) =>
+    fetch(`${GEMINI_BASE}/${modelo}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
       body: JSON.stringify({
@@ -216,28 +223,48 @@ Deno.serve(async (req) => {
         },
       }),
     });
-  let http: Response;
-  try {
-    http = await chamar(true);
-    if (http.status === 400) {
-      const corpo = await http.clone().text();
-      if (/schema|response_json|responseJson/i.test(corpo)) {
-        console.error("gemini schema recusado, tentando sem", corpo);
-        http = await chamar(false);
+  const tentarModelo = async (modelo: string): Promise<Response> => {
+    let comSchema = true;
+    let r = await chamar(modelo, comSchema);
+    for (let i = 0; ; i++) {
+      if (r.status === 400 && comSchema && /schema|response_json|responseJson/i.test(await r.clone().text())) {
+        console.error("gemini schema recusado, tentando sem", modelo);
+        comSchema = false;
+      } else if (TEMPORARIO.has(r.status) && i < ESPERAS_MS.length) {
+        console.error("gemini temporário", modelo, r.status, "tentativa", i + 1);
+        await new Promise((ok) => setTimeout(ok, ESPERAS_MS[i]));
+      } else {
+        return r;
       }
+      r = await chamar(modelo, comSchema);
+    }
+  };
+  const modelos = [MODEL, ...MODELOS_RESERVA.filter((m) => m !== MODEL)];
+  let http: Response | null = null;
+  let modeloUsado = MODEL;
+  let primeiroErro: { r: Response; modelo: string } | null = null;
+  try {
+    for (const modelo of modelos) {
+      http = await tentarModelo(modelo);
+      modeloUsado = modelo;
+      if (http.ok) break;
+      primeiroErro ??= { r: http, modelo };
+      // Só troca de modelo quando o problema é do modelo (sobrecarga, limite,
+      // modelo inexistente); chave recusada ou pedido inválido falham igual em qualquer um.
+      if (!TEMPORARIO.has(http.status) && http.status !== 404) break;
+      console.error("gemini trocando de modelo", modelo, http.status, await http.clone().text());
     }
   } catch (e) {
     console.error("gemini rede", e);
     return json({ erro: "Não consegui falar com o serviço de IA. Tente de novo." }, 502);
   }
-  if (http.status === 429) {
-    return json({ erro: "Limite gratuito do Gemini atingido. Tente em alguns minutos." }, 429);
+  if (!http!.ok) {
+    // Mostra o erro do modelo escolhido pela pessoa, que é o que ela entende.
+    const { r, modelo } = primeiroErro!;
+    console.error("gemini", modelo, r.status, await r.clone().text());
+    return json({ erro: await erroDoGoogle(r, modelo, false) }, r.status === 429 ? 429 : 502);
   }
-  if (!http.ok) {
-    console.error("gemini", http.status, await http.clone().text());
-    return json({ erro: await erroDoGoogle(http, MODEL, false) }, 502);
-  }
-  const resposta: RespostaGemini = await http.json();
+  const resposta: RespostaGemini = await http!.json();
 
   const candidato = resposta.candidates?.[0];
   if (resposta.promptFeedback?.blockReason || candidato?.finishReason === "SAFETY" || candidato?.finishReason === "PROHIBITED_CONTENT") {
@@ -262,7 +289,7 @@ Deno.serve(async (req) => {
   return json({
     proposta,
     uso: {
-      modelo: MODEL,
+      modelo: modeloUsado,
       input_tokens: resposta.usageMetadata?.promptTokenCount ?? 0,
       output_tokens: (resposta.usageMetadata?.candidatesTokenCount ?? 0) + (resposta.usageMetadata?.thoughtsTokenCount ?? 0),
     },
@@ -286,6 +313,11 @@ async function erroDoGoogle(r: Response, modelo: string, teste: boolean): Promis
     return `O modelo "${modelo}" não existe ou não está disponível para esta chave. Escolha outro na lista.`;
   }
   if (r.status === 429) return "Limite gratuito do Gemini atingido. Tente em alguns minutos.";
+  if (r.status === 503 || r.status === 500 || /high demand|overloaded|UNAVAILABLE/i.test(corpo)) {
+    return teste
+      ? "O Gemini está sobrecarregado agora (alta demanda no Google). Tente em alguns minutos."
+      : "O Gemini está sobrecarregado agora (alta demanda no Google). Tentei de novo e em outros modelos, sem sucesso. Tente em alguns minutos.";
+  }
   let detalhe = "";
   try {
     detalhe = JSON.parse(corpo).error?.message ?? "";
