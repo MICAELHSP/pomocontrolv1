@@ -1,6 +1,6 @@
 // Calendário: o que aconteceu em cada dia (tempo registrado nas demandas e atividades livres)
 // junto com as reuniões do Outlook. Semana = mapa de atividades; Mês = ocupação; ao lado, o relatório do dia.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { I } from '../components/Icons';
 import { Modal } from '../components/Modal';
 import { useEntriesBetween } from '../data/api';
@@ -11,6 +11,7 @@ import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, type
 import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 import type { Meeting } from '../lib/types';
+import { useFitHeight } from '../lib/useFit';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 import { CalendarioModal } from './CalendarioSettings';
@@ -186,8 +187,7 @@ function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jD
   );
 }
 
-const PX = 50, START = 8 * 60, END = 18 * 60;
-const wy = (min: number) => ((Math.min(Math.max(min, START), END) - START) / 60) * PX;
+const START = 8 * 60, END = 18 * 60;
 
 function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen }: {
   days: Day[]; sel: string; onSel: (k: string) => void; onShift: (n: number) => void; now: number;
@@ -196,6 +196,12 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, 
   const nowD = new Date(now), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
   const hours = [];
   for (let h = 8; h <= 18; h++) hours.push(h);
+  // Altura da hora ajustada ao espaço da tela, para a semana caber sem rolagem.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const fit = useFitHeight(bodyRef, 510, 88);
+  const PX = Math.max(26, Math.floor((fit - 8) / ((END - START) / 60)));
+  const wy = (min: number) => ((Math.min(Math.max(min, START), END) - START) / 60) * PX;
+  const grid = `repeating-linear-gradient(to bottom,transparent 0 ${PX - 1}px,var(--line) ${PX - 1}px ${PX}px)`;
   return (
     <div className="panel">
       <Nav label={`Semana de ${ddmm(days[0].d)} a ${ddmm(days[4].d)}`} onShift={onShift} />
@@ -208,10 +214,10 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, 
             </button>
           ))}
         </div>
-        <div className="wbody">
+        <div className="wbody" ref={bodyRef} style={{ height: ((END - START) / 60) * PX + 4 }}>
           <div className="whours">{hours.map((h) => <div key={h} className="whr" style={{ top: wy(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}h</span></div>)}</div>
           {days.map((x) => (
-            <div key={x.k} className={`wcol ${x.hol ? 'hol' : ''} ${sel === x.k ? 'sel' : ''}`} onClick={() => onSel(x.k)}>
+            <div key={x.k} className={`wcol ${x.hol ? 'hol' : ''} ${sel === x.k ? 'sel' : ''}`} style={{ backgroundImage: grid }} onClick={() => onSel(x.k)}>
               {x.meetings.map((mt) => {
                 const a = toMinutes(mt.start)!, b = toMinutes(mt.end)!;
                 if (b <= START || a >= END) return null;

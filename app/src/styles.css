@@ -160,7 +160,7 @@ button{cursor:pointer}
 .panel{border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
 .panel > h3{margin:0 0 10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
 .panel > h3 .chip{font-weight:500}
-.tl{position:relative;height:560px;margin-bottom:24px;margin-left:44px;border-left:1px solid var(--line)}
+.tl{position:relative;height:560px;margin-bottom:8px;margin-left:44px;border-left:1px solid var(--line)}
 .tl .hr{position:absolute;left:-44px;right:0;height:0;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)}
 .tl .hr span{position:absolute;top:-8px;left:0;width:38px;text-align:right;background:var(--surface)}
 .tl .ev{position:absolute;left:8px;right:8px;border-radius:6px;padding:4px 8px;font-size:12px;overflow:hidden;cursor:pointer;border:1px solid transparent}
@@ -175,7 +175,7 @@ button{cursor:pointer}
 .tl .due.conf span{background:var(--danger)}
 .tl .now{position:absolute;left:-5px;right:0;height:0;border-top:2px solid var(--focus);z-index:3}
 .tl .now::before{content:"";position:absolute;left:-4px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--focus)}
-.tlwrap{overflow:auto;max-height:600px;padding-top:8px}
+.tlwrap{padding-top:8px}
 .stack{display:flex;flex-direction:column;gap:16px;min-width:0}
 .mini{display:flex;flex-direction:column}
 .mini .row{grid-template-columns:28px minmax(0,1fr) auto}
@@ -429,10 +429,10 @@ p.err{font-size:13px;margin:0}
 
 /* ---------- mini-janela flutuante (#mini) ---------- */
 html.is-mini,html.is-mini body{background:var(--surface);overflow:hidden;height:100%}
-.mini{height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-left:4px solid var(--muted);background:var(--surface);-webkit-app-region:drag;user-select:none}
-.mini.ph-focus{border-left-color:var(--focus)}
-.mini.ph-brk{border-left-color:var(--ok)}
-.mini button,.mini select{-webkit-app-region:no-drag}
+.mw{height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-left:4px solid var(--muted);background:var(--surface);-webkit-app-region:drag;user-select:none}
+.mw.ph-focus{border-left-color:var(--focus)}
+.mw.ph-brk{border-left-color:var(--ok)}
+.mw button,.mw select{-webkit-app-region:no-drag}
 .mini-top,.mini-bot{display:flex;align-items:center;gap:8px;min-width:0}
 .mini-phase{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
 .mini-phase i{width:8px;height:8px;border-radius:50%;background:currentColor;display:block}

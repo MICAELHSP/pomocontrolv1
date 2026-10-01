@@ -30,7 +30,7 @@ export function Mini() {
   };
 
   return (
-    <div className={`mini ph-${phase}`}>
+    <div className={`mw ph-${phase}`}>
       <div className="mini-top">
         <span className="mini-phase"><i />{label}</span>
         <span className="mini-time mono" aria-label="Tempo restante da fase">{time}</span>

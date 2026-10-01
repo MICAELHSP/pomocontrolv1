@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { conflictOf, DemandRow } from '../components/DemandRow';
 import { I } from '../components/Icons';
 import { isOpen, type Model } from '../data/model';
 import { dayDiff, dur, hm, isoDate, longDate, shortTime, toMinutes } from '../lib/format';
 import { entriesByDay } from '../lib/occupancy';
 import { secondsByActivity } from '../lib/pomodoro';
+import { useFitHeight } from '../lib/useFit';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 import { CalendarioModal, CalendarSource } from './CalendarioSettings';
@@ -25,7 +26,11 @@ export function Hoje({ m }: { m: Model }) {
   const t = useTimerCtx();
   const ui = useUI();
   const [calOpen, setCalOpen] = useState(false);
-  const PX = 56, START = 8 * 60, END = 18 * 60;
+  const START = 8 * 60, END = 18 * 60;
+  // A agenda ocupa a altura que sobra na tela (sem rolagem); mínimo de 28 px por hora.
+  const tlRef = useRef<HTMLDivElement>(null);
+  const fit = useFitHeight(tlRef, 560, 48);
+  const PX = Math.max(28, Math.floor((fit - 16) / ((END - START) / 60)));
   const y = (min: number) => ((Math.min(Math.max(min, START), END + 60) - START) / 60) * PX;
   const nowD = new Date(t.now);
   const nowMin = nowD.getHours() * 60 + nowD.getMinutes();
@@ -68,7 +73,7 @@ export function Hoje({ m }: { m: Model }) {
       <div className="hoje">
         <div className="panel">
           <h3>Agenda do dia <CalendarSource onOpen={() => setCalOpen(true)} /></h3>
-          <div className="tlwrap"><div className="tl">
+          <div className="tlwrap" ref={tlRef}><div className="tl" style={{ height: ((END - START) / 60) * PX + 4 }}>
             {hours.map((h) => <div key={h} className="hr" style={{ top: y(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}:00</span></div>)}
             {worked.map((w) => {
               const h = y(w.end) - y(w.start);
@@ -76,7 +81,7 @@ export function Hoje({ m }: { m: Model }) {
               const label = `${nameOf(w.key)} · ${hm(w.start)}–${hm(w.end)} (${dur((w.end - w.start) * 60)})`;
               return (
                 <div key={w.key + w.start} className="ev work" title={`Trabalhado: ${label}`} onClick={() => d && ui.open(d.id)}
-                  style={{ top: y(w.start), height: Math.max(4, h - 2), borderLeftColor: d ? m.colorOf(d) : 'var(--muted)', padding: h < 20 ? '0 8px' : undefined }}>
+                  style={{ top: y(w.start), height: Math.max(4, h - 2), borderLeftColor: d ? m.colorOf(d) : 'var(--muted)', background: `color-mix(in srgb, ${d ? m.colorOf(d) : 'var(--muted)'} 22%, var(--surface))`, padding: h < 20 ? '0 8px' : undefined }}>
                   {h >= 20 && <><b>{nameOf(w.key)}</b><span className="mono">{hm(w.start)}–{hm(w.end)}</span></>}
                 </div>
               );
