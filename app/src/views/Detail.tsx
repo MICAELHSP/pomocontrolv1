@@ -46,6 +46,10 @@ export function Detail({ m }: { m: Model }) {
 
   const kids = m.children(d.id);
   const openKids = kids.filter(isOpen);
+  // A principal soma o próprio tempo/estimativa com o das subtarefas (um nível só).
+  const ownSecs = d.total_seconds + t.liveExtra(d.id);
+  const kidsSecs = kids.reduce((n, k) => n + k.total_seconds + t.liveExtra(k.id), 0);
+  const kidsEst = kids.reduce((n, k) => n + (k.estimated_minutes ?? 0), 0);
   const deps = m.depsOf(d.id);
   const blockers = m.blockers(d.id);
   const c = conflictOf(d, m);
@@ -151,7 +155,16 @@ export function Detail({ m }: { m: Model }) {
               {depCandidates.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
             </select>
           </dd>
-          <dt>Tempo total</dt><dd className="mono">{dur(d.total_seconds + t.liveExtra(d.id))}{d.pomodoros_count ? ` · ${d.pomodoros_count} pomodoro${d.pomodoros_count > 1 ? 's' : ''}` : ''}</dd>
+          <dt>Estimativa</dt>
+          <dd>
+            <input key={`est-${d.id}-${d.estimated_minutes ?? ''}`} className="input mono" type="number" min={1} style={{ maxWidth: 90 }} aria-label="Estimativa em minutos"
+              defaultValue={d.estimated_minutes ?? ''} placeholder="min"
+              onBlur={(e) => { const v = e.target.value ? Math.max(1, Math.round(+e.target.value)) : null; if (v !== d.estimated_minutes) patch({ estimated_minutes: v }); }} />
+            {' '}min{kids.length > 0 && kidsEst > 0 && <span className="hint"> · com subtarefas: <b className="mono">{dur(((d.estimated_minutes ?? 0) + kidsEst) * 60)}</b></span>}
+          </dd>
+          <dt>Tempo total</dt>
+          <dd className="mono">{dur(ownSecs + kidsSecs)}{d.pomodoros_count ? ` · ${d.pomodoros_count} pomodoro${d.pomodoros_count > 1 ? 's' : ''}` : ''}
+            {kids.length > 0 && <span className="hint"> · própria {dur(ownSecs)} + subtarefas {dur(kidsSecs)}</span>}</dd>
         </dl>
 
         {c && d.due_time && (

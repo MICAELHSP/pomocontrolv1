@@ -90,7 +90,13 @@ export function DemandRow({ d, m, group, noTime }: { d: DemandOverview; m: Model
         aria-label={`Concluir ${d.title}`} title={locked ? 'Bloqueada por subtarefas ou dependências abertas' : 'Concluir'}
         onClick={(e) => { stop(e); toggle(d, e.currentTarget); }}><I.check /></button>
       <div className="body"><div className="title">{d.title}</div><div className="chips"><Chips d={d} m={m} withGroup={group} /></div></div>
-      {!noTime && <div className="time mono">{dur(d.total_seconds + t.liveExtra(d.id))}</div>}
+      {!noTime && (() => {
+        // Principal mostra o total com as subtarefas; o próprio tempo fica na dica.
+        const own = d.total_seconds + t.liveExtra(d.id);
+        const kids = d.parent_id ? [] : m.children(d.id);
+        const sub = kids.reduce((n, k) => n + k.total_seconds + t.liveExtra(k.id), 0);
+        return <div className="time mono" title={kids.length ? `Própria ${dur(own)} + subtarefas ${dur(sub)}` : undefined}>{dur(own + sub)}</div>;
+      })()}
       {d.status === 'done' ? <span style={{ width: 30 }} /> : running
         ? <button className="iconbtn" aria-label="Pausar" title="Pausar" disabled={t.busy} onClick={(e) => { stop(e); t.pause(); }}><I.pause /></button>
         : <button className="iconbtn play" aria-label="Iniciar cronômetro" title="Iniciar cronômetro" disabled={t.busy} onClick={(e) => { stop(e); t.start({ demandId: d.id }); }}><I.play /></button>}
