@@ -5,7 +5,7 @@ Leva uns 5 minutos. Não precisa instalar mais nada além do próprio app.
 ## 1. Baixar
 
 1. Abra a página de versões: <https://github.com/MICAELHSP/pomocontrolv1/releases>
-2. Na versão mais recente (no topo), em **Assets**, clique em **`Pauta-Setup-x.y.z.exe`** (ex.: `Pauta-Setup-1.0.0.exe`).
+2. Na versão mais recente (no topo), em **Assets**, clique no arquivo que termina em **`.exe`** (ex.: `Pauta.Setup.1.0.0.exe`).
 
 ## 2. Instalar
 

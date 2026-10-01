@@ -1,12 +1,19 @@
-name: instalador-pr
+name: instalador
 
-# Checagens de instalação em PRs que mexem no app (a Release em si fica no release.yml, nas tags v*):
-# - supabase-api: a API do Supabase expõe o schema demandas_app? Sem isso o app instalado não carrega nada.
-# - windows: gera o instalador .exe e deixa em "Artifacts" da execução, para testar antes de publicar.
+# Instalador do Windows do app Pauta.
+# - Em PRs que mexem no app: gera o .exe e deixa em "Artifacts" da execução, e confere a API do Supabase.
+# - Em tags v* (ex.: git tag v1.0.0 && git push origin v1.0.0): cria a Release com o .exe anexado.
+# Opcional: segredos VITE_SUPABASE_URL e VITE_SUPABASE_KEY deixam o endereço do Supabase embutido;
+# sem eles, o app pede os dois na primeira abertura.
 on:
   pull_request:
-    paths: ['app/**', 'backend/README.md', '.github/workflows/instalador-pr.yml']
+    paths: ['app/**', 'backend/README.md', '.github/workflows/release.yml']
+  push:
+    tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   # O app só funciona se a API do Supabase expõe o schema demandas_app
@@ -41,7 +48,11 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
       - name: Empacotar (electron-builder, NSIS)
         run: npx electron-builder --win nsis --publish never
         env:
@@ -51,3 +62,9 @@ jobs:
           name: Pauta-windows
           path: app/release/*.exe
           if-no-files-found: error
+      - name: Release da tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/release/*.exe
+          generate_release_notes: true
