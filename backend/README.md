@@ -19,8 +19,11 @@ Cada linha tem `owner_id` (usuário do Supabase Auth) e o RLS garante que cada u
 | `pomodoros` | O ritmo, independente de demanda: cada fase (foco, intervalo, pausa longa), ciclo, início/fim, `completed`/`interrupted`; fila "Próximo: …" no intervalo |
 | `ai_settings` | Configuração de IA por usuário: provedor, modelo, final da chave e referência ao segredo no Vault (sem escrita direta pelo app) |
 | `time_entries` | Sessões de tempo de uma demanda **ou** atividade livre (`free_activity`, ex.: E-mails). `pomodoro_id` = foco em que aconteceu (um foco pode ter várias). `ended_at` nulo = rodando |
+| `work_settings` | Jornada por usuário: início/fim (08:00–17:00), almoço (60 min), dias úteis (`workdays`, 0 = domingo; padrão seg–sex), fuso (America/Sao_Paulo). Sem linha = padrão |
+| `holidays` | Feriados nacionais 2025–2035 (inclui Sexta-feira Santa e 20/11). Compartilhada, só leitura para o app |
+| `calendar_events` | Reuniões do Outlook gravadas pelo app (upsert por `owner_id, source, external_id`): início/fim, dia inteiro, `show_as`, local, link |
 
-Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em foco, pomodoros, checklist, bloqueios), `pomodoro_breakdown` (cada pomodoro com as atividades dentro dele: "Este foco" e "Pomodoros de hoje") e `daily_time` (tempo por dia e atividade).
+Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em foco, pomodoros, checklist, bloqueios), `pomodoro_breakdown` (cada pomodoro com as atividades dentro dele: "Este foco" e "Pomodoros de hoje") `daily_time` (tempo por dia e atividade) e `time_entry_blocks` (cada sessão com título da demanda, grupo e cor, para o mapa semanal do Calendário).
 
 ## Regras garantidas pelo banco
 
@@ -41,13 +44,14 @@ Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em fo
 - `create_demand_from_ai(p jsonb)` grava a proposta revisada da captura com IA (demanda, checklist, subtarefas, dependências e histórico) numa transação só; formato em `/mnt/project-files/ia/README.md`.
 - `set_ai_key(p_key, p_model)`, `set_ai_model(p_model)`, `clear_ai_key()` guardam, trocam e apagam a chave do Gemini do usuário no Supabase Vault. O app só vê o final da chave (`ai_settings.key_hint`); a leitura (`get_ai_key`) é exclusiva da service role, usada pela Edge Function.
 - `renormalize_demand_order(p_group_id, p_parent_id)` renumera 10, 20, 30… uma lista de irmãos quando os intervalos da ordem manual ficam pequenos.
+- `daily_occupancy(p_from, p_to)` devolve, por dia: se é dia útil, feriado, minutos da jornada, tempo registrado (demandas, atividades livres, por grupo), tempo de reunião sem sobreposição com o registrado e a % de ocupação. Até 400 dias por chamada. Reuniões de dia inteiro ou marcadas como livres não contam.
 - `finish_pomodoro(p_status)` encerra a fase atual (ex.: "Pular fase"); a atividade segue rodando fora do pomodoro.
 
 No cliente: `supabase.schema('demandas_app').rpc('start_activity', { p_demand_id })`.
 
 ## Onde está aplicado
 
-Migrations 1 a 7 aplicadas em 2026-09-30 no projeto **central-gerencial-prod** (`xwdvbzexezsnwvattgnv`), que não é usado pela CG.
+Migrations 1 a 8 aplicadas em 2026-09-30 no projeto **central-gerencial-prod** (`xwdvbzexezsnwvattgnv`), que não é usado pela CG.
 Não aplicar no `central-gerencial-dev`: é o banco que a CG usa de verdade.
 
 - URL: `https://xwdvbzexezsnwvattgnv.supabase.co`
@@ -68,6 +72,6 @@ Não aplicar no `central-gerencial-dev`: é o banco que a CG usa de verdade.
 PGURL="postgresql://postgres@localhost:5432/postgres" ./tests/run.sh
 ```
 
-## Futuro: Outlook
+## Outlook
 
-A integração com calendário vai precisar de uma tabela de eventos externos (início/fim/assunto por usuário) e de uma checagem de conflito com `demands.due_at`/`planned_start`. Fica para a fase 4.
+A thread do Outlook grava as reuniões em `calendar_events` (upsert por `owner_id, source, external_id`); o Calendário e `daily_occupancy` já as consideram.
