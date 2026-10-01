@@ -168,6 +168,7 @@ export interface Meeting {
   id?: string;
   date?: string; // yyyy-mm-dd
   webLink?: string | null;
+  location?: string | null;
 }
 
 export const DEFAULT_SETTINGS: PomodoroSettings = {
