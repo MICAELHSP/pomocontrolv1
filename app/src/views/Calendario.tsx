@@ -51,6 +51,7 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
   const [anchor, setAnchor] = useState(() => new Date());
   const [sel, setSel] = useState<string>(todayK);
   const [modal, setModal] = useState<'' | 'outlook' | 'jornada'>('');
+  const [meetSel, setMeetSel] = useState<Meeting | null>(null);
 
   // Intervalo lido: o mês do âncora (grade seg–dom) mais a semana do âncora.
   const monthFirst = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
@@ -99,12 +100,13 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
         )}
         {cal.error ? <div className="cfgbanner">Erro ao ler o Outlook: {errMsg(cal.error)}</div> : null}
         {mode === 'mes'
-          ? <MonthGrid days={monthDays} month={monthFirst} sel={sel} onSel={setSel} onShift={shift} colorOfGroup={colorOfGroup} m={m} jMin={jornadaMinutes(j)} jDays={j.days} />
+          ? <MonthGrid days={monthDays} month={monthFirst} sel={sel} onSel={setSel} onShift={shift} colorOfGroup={colorOfGroup} m={m} jMin={jornadaMinutes(j)} jDays={j.days} nameOfKey={nameOfKey} />
           : <WeekMap days={[0, 1, 2, 3, 4].map((i) => day(addDays(week0, i)))} sel={sel} onSel={setSel} onShift={shift} now={t.now}
-              colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} onOpen={onOpen} />}
+              colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} onOpen={onOpen} onMeeting={setMeetSel} />}
       </div>
-      <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onOpen={onOpen} onJornada={() => setModal('jornada')} />
+      <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onOpen={onOpen} onMeeting={setMeetSel} isMeetingKey={m.isMeetingKey} onJornada={() => setModal('jornada')} />
       {modal === 'outlook' && <CalendarioModal onClose={() => setModal('')} />}
+      {meetSel && <MeetingModal mt={meetSel} onClose={() => setMeetSel(null)} />}
       {modal === 'jornada' && <Modal label="Jornada de trabalho" onClose={() => setModal('')}><JornadaSettings /></Modal>}
     </div>
   );
@@ -149,9 +151,9 @@ function Nav({ label, onShift }: { label: string; onShift: (n: number) => void }
   );
 }
 
-function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jDays }: {
+function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jDays, nameOfKey }: {
   days: Day[]; month: Date; sel: string; onSel: (k: string) => void; onShift: (n: number) => void;
-  colorOfGroup: (g: string) => string; m: Model; jMin: number; jDays: number[];
+  colorOfGroup: (g: string) => string; m: Model; jMin: number; jDays: number[]; nameOfKey: (k: string) => string;
 }) {
   const lead = (month.getDay() + 6) % 7, tail = (7 - ((lead + days.length) % 7)) % 7;
   return (
@@ -168,6 +170,7 @@ function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jD
             <button key={x.k} className={`mc ${off ? 'wk' : ''} ${sel === x.k ? 'sel' : ''} ${x.today ? 'today' : ''}`} style={bg ? { background: bg } : undefined}
               onClick={() => onSel(x.k)} aria-label={`${x.d.getDate()} de ${MON[month.getMonth()]}${x.st.pct != null && !x.future ? `, ocupação ${x.st.pct}%` : ''}`}>
               <span className="mcd">{x.d.getDate()}</span>
+              <MeetTip x={x} m={m} nameOfKey={nameOfKey} right={x.d.getDay() === 0 || x.d.getDay() >= 5} />
               {x.hol ? <span className="mch">Feriado</span>
                 : x.future ? (x.meetings.length ? <span className="mch mono">{hmin(x.st.meet)} reuniões</span> : null)
                 : has ? <>
@@ -192,9 +195,9 @@ function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jD
 
 const START = 8 * 60, END = 18 * 60;
 
-function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen }: {
+function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen, onMeeting }: {
   days: Day[]; sel: string; onSel: (k: string) => void; onShift: (n: number) => void; now: number;
-  colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void;
+  colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void; onMeeting: (mt: Meeting) => void;
 }) {
   const nowD = new Date(now), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
   const hours = [];
@@ -224,7 +227,8 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, 
               {x.meetings.map((mt) => {
                 const a = toMinutes(mt.start)!, b = toMinutes(mt.end)!;
                 if (b <= START || a >= END) return null;
-                return <div key={(mt.id ?? mt.title) + mt.start} className="wb meet" style={{ top: wy(a), height: Math.max(3, wy(b) - wy(a) - 1) }} title={`${mt.title} ${mt.start}–${mt.end}`}><span>{mt.title}</span></div>;
+                return <div key={(mt.id ?? mt.title) + mt.start} className="wb meet link" style={{ top: wy(a), height: Math.max(3, wy(b) - wy(a) - 1) }} title={`${mt.title} ${mt.start}–${mt.end} · clique para ver`}
+                  onClick={(e) => { e.stopPropagation(); onSel(x.k); onMeeting(mt); }}><span>{mt.title}</span></div>;
               })}
               {x.segs.map((s, i) => {
                 if (s.end <= START || s.start >= END) return null;
@@ -251,14 +255,26 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, 
 
 const hmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
-function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onOpen, onJornada }: {
+function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onOpen, onMeeting, isMeetingKey, onJornada }: {
   day: Day; j: Jornada; colorOfKey: (k: string) => string; nameOfKey: (k: string) => string;
-  colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void; onJornada: () => void;
+  colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void;
+  onMeeting: (mt: Meeting) => void; isMeetingKey: (k: string) => boolean; onJornada: () => void;
 }) {
   const label = `${cap(WDL[x.d.getDay()])}, ${ddmm(x.d)}`;
   const foot = <p className="note">Reunião que coincide com tempo registrado conta uma vez só. Jornada: {j.start}–{j.end}, {j.lunch} min de almoço. <button className="linkbtn" onClick={onJornada}>Alterar jornada</button></p>;
-  const meetList = x.meetings.length > 0 && (
-    <div className="sect"><h4>Reuniões</h4>{x.meetings.map((mt) => <div className="item" key={(mt.id ?? mt.title) + mt.start}><span>{mt.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{mt.start}–{mt.end}</span></div>)}</div>
+  // Reuniões do dia: as da agenda (Outlook/.ics) e as registradas como demanda-reunião.
+  const regs = meetingSegs(x, isMeetingKey);
+  const meetList = (x.meetings.length > 0 || regs.length > 0) && (
+    <div className="sect"><h4>Reuniões</h4>
+      {x.meetings.map((mt) => (
+        <div className="item link" key={(mt.id ?? mt.title) + mt.start} onClick={() => onMeeting(mt)} title="Ver a reunião">
+          <span>{mt.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{mt.start}–{mt.end}</span></div>
+      ))}
+      {regs.map((g) => (
+        <div className={`item ${g.key.startsWith('d:') ? 'link' : ''}`} key={g.key + g.start} onClick={() => onOpen(g.key)} title={g.key.startsWith('d:') ? 'Abrir demanda' : undefined}>
+          <span>{nameOfKey(g.key)} <span className="note">(registrada)</span></span><span className="mono note" style={{ marginLeft: 'auto' }}>{hmm(g.start)}–{hmm(g.end)}</span></div>
+      ))}
+    </div>
   );
 
   if (x.hol && !x.st.used) return <div className="panel dayrep"><h3>{label}</h3><p className="note">Feriado: {x.hol}. Fora da jornada.</p></div>;
@@ -317,5 +333,49 @@ function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onOpe
       {meetList}
       {foot}
     </div>
+  );
+}
+
+/** Trechos de tempo registrados em reunião (demanda-reunião ou "Reunião não planejada"), juntando os seguidos. */
+function meetingSegs(x: Day, isMeetingKey: (k: string) => boolean): Seg[] {
+  const out: Seg[] = [];
+  for (const g of x.segs) {
+    if (!isMeetingKey(g.key)) continue;
+    const last = out[out.length - 1];
+    if (last && last.key === g.key && g.start - last.end <= 2) last.end = Math.max(last.end, g.end);
+    else out.push({ ...g });
+  }
+  return out;
+}
+
+/** Dica ao passar o mouse num dia do mês: as reuniões do dia. */
+function MeetTip({ x, m, nameOfKey, right }: { x: Day; m: Model; nameOfKey: (k: string) => string; right: boolean }) {
+  const regs = meetingSegs(x, m.isMeetingKey);
+  if (!x.meetings.length && !regs.length) return null;
+  return (
+    <span className={`mtip ${right ? 'r' : ''}`} role="tooltip">
+      <b>Reuniões</b>
+      {x.meetings.map((mt) => <span key={(mt.id ?? mt.title) + mt.start} className="mtr"><span className="mono">{mt.start}–{mt.end}</span>{mt.title}</span>)}
+      {regs.map((g) => <span key={g.key + g.start} className="mtr"><span className="mono">{hmm(g.start)}–{hmm(g.end)}</span>{nameOfKey(g.key)} (registrada)</span>)}
+    </span>
+  );
+}
+
+/** Detalhe de uma reunião da agenda (Outlook ou .ics). */
+function MeetingModal({ mt, onClose }: { mt: Meeting; onClose: () => void }) {
+  const d = mt.date ? parseDate(mt.date) : null;
+  return (
+    <Modal label="Reunião" onClose={onClose}>
+      <div className="stack" style={{ gap: 10 }}>
+        <h3 style={{ margin: 0, paddingRight: 32 }}>{mt.title}</h3>
+        <p className="note" style={{ margin: 0 }}>{d ? `${cap(WDL[d.getDay()])}, ${ddmm(d)} · ` : ''}<span className="mono">{mt.start}–{mt.end}</span></p>
+        {mt.location && <p style={{ margin: 0 }}><b>Local:</b> {/^https?:\/\//.test(mt.location) ? <a className="link" href={mt.location} target="_blank" rel="noreferrer">{mt.location}</a> : mt.location}</p>}
+        <div className="ai-row">
+          {mt.webLink && <a className="btn primary" href={mt.webLink} target="_blank" rel="noreferrer">Abrir no Outlook</a>}
+          <button className="btn" onClick={onClose}>Fechar</button>
+        </div>
+        {!mt.webLink && <p className="fine" style={{ margin: 0 }}>Reunião importada de arquivo .ics: não há link para abrir no Outlook.</p>}
+      </div>
+    </Modal>
   );
 }

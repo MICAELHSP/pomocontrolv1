@@ -463,3 +463,12 @@ html.is-mini .toast{left:6px;right:6px;bottom:4px;transform:none;max-width:none;
 .icsdrop{position:relative}
 .icsdrop.over{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
 .dropmsg{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:color-mix(in srgb,var(--surface) 82%,transparent);font-weight:600;color:var(--accent);border-radius:12px;pointer-events:none}
+
+/* Calendário (mês): reuniões do dia ao passar o mouse */
+.mc{position:relative}
+.mtip{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:8;min-width:220px;max-width:300px;flex-direction:column;gap:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35);font-size:12px;color:var(--fg);text-align:left;white-space:normal}
+.mtip.r{left:auto;right:0}
+.mtip b{font-size:11px;color:var(--meet);text-transform:uppercase;letter-spacing:.04em}
+.mtr{display:flex;gap:8px}.mtr .mono{color:var(--muted);flex:none}
+.mc:hover .mtip,.mc:focus-visible .mtip{display:flex}
+.wb.meet.link{cursor:pointer}
