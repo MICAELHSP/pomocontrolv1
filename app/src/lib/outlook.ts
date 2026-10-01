@@ -113,18 +113,35 @@ export async function syncEvents(events: OutlookEvent[], from: Date, to: Date) {
   }
 }
 
-async function eventsFromDb(from: Date, to: Date): Promise<OutlookEvent[]> {
-  const rows = must(await sb().from('calendar_events').select('external_id, subject, starts_at, ends_at, is_all_day, show_as, location, web_link')
-    .lt('starts_at', to.toISOString()).gt('ends_at', from.toISOString()).order('starts_at')) as EventRow[];
+async function eventsFromDb(from: Date, to: Date, source?: string): Promise<OutlookEvent[]> {
+  let q = sb().from('calendar_events').select('external_id, subject, starts_at, ends_at, is_all_day, show_as, location, web_link')
+    .lt('starts_at', to.toISOString()).gt('ends_at', from.toISOString());
+  if (source) q = q.eq('source', source);
+  const rows = must(await q.order('starts_at')) as EventRow[];
   return rows.map(fromRow);
 }
 
-/** Outlook conectado: lê do Graph e grava a cópia. Senão: lê a última cópia do banco. */
+/** Junta as listas sem repetir o mesmo evento (mesmo assunto, início e fim), ex.: .ics exportado do próprio Outlook. */
+export function mergeEvents(...lists: OutlookEvent[][]): OutlookEvent[] {
+  const seen = new Set<string>();
+  return lists.flat().filter((e) => {
+    const k = `${e.title.trim().toLowerCase()}|${Date.parse(e.start)}|${Date.parse(e.end)}`;
+    return seen.has(k) ? false : (seen.add(k), true);
+  });
+}
+
+/**
+ * Outlook conectado: lê do Graph, grava a cópia e soma os eventos importados de .ics.
+ * Senão: lê tudo do banco (última cópia do Outlook + .ics importados).
+ */
 async function loadEvents(b: OutlookBridge | undefined, connected: boolean, from: Date, to: Date): Promise<OutlookEvent[]> {
-  if (!b || !connected) return eventsFromDb(from, to);
-  const events = await b.events(from.toISOString(), to.toISOString());
+  if (!b || !connected) return mergeEvents(await eventsFromDb(from, to));
+  const [events, ics] = await Promise.all([
+    b.events(from.toISOString(), to.toISOString()),
+    eventsFromDb(from, to, 'ics').catch((e) => { console.warn('Não foi possível ler os eventos importados:', e); return []; }),
+  ]);
   try { await syncEvents(events, from, to); } catch (e) { console.warn('Não foi possível gravar as reuniões no banco:', e); }
-  return events;
+  return mergeEvents(events, ics);
 }
 
 const EMPTY: Meeting[] = [];
