@@ -99,9 +99,9 @@ async function graph(url) {
   return json;
 }
 
-const page = (html) => `<!doctype html><meta charset="utf-8"><title>Pauta</title>
+const page = (html) => `<!doctype html><meta charset="utf-8"><title>Pulso Control</title>
 <body style="font-family:system-ui,sans-serif;display:grid;place-items:center;height:90vh;color:#15222B">
-<div style="text-align:center"><h2>${html}</h2><p>Pode fechar esta aba e voltar ao Pauta.</p></div></body>`;
+<div style="text-align:center"><h2>${html}</h2><p>Pode fechar esta aba e voltar ao Pulso Control.</p></div></body>`;
 
 /** Abre o login da Microsoft no navegador e espera o retorno no localhost. */
 function login(clientId, tenant) {
@@ -129,7 +129,7 @@ function login(clientId, tenant) {
       }
       try {
         const tok = await postToken(tenant, core.codeBody({ clientId, code: p.get('code'), redirectUri, verifier }));
-        res.end(page('Outlook conectado ao Pauta.'));
+        res.end(page('Outlook conectado ao Pulso Control.'));
         done(null, tok);
       } catch (e) {
         res.end(page('Não foi possível conectar.'));

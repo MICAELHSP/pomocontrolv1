@@ -46,6 +46,10 @@ export function Detail({ m }: { m: Model }) {
 
   const kids = m.children(d.id);
   const openKids = kids.filter(isOpen);
+  // A principal soma o próprio tempo/estimativa com o das subtarefas (um nível só).
+  const ownSecs = d.total_seconds + t.liveExtra(d.id);
+  const kidsSecs = kids.reduce((n, k) => n + k.total_seconds + t.liveExtra(k.id), 0);
+  const kidsEst = kids.reduce((n, k) => n + (k.estimated_minutes ?? 0), 0);
   const deps = m.depsOf(d.id);
   const blockers = m.blockers(d.id);
   const c = conflictOf(d, m);
@@ -69,6 +73,8 @@ export function Detail({ m }: { m: Model }) {
             onBlur={() => { const v = title.trim(); if (v && v !== d.title) patch({ title: v }); else setTitle(d.title); }}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
         </h3>
+        {ui.view !== 'demandas' && <button className="iconbtn" onClick={() => { const id = d.id; ui.go('demandas', d.group_id); ui.open(id); }}
+          aria-label="Ir para a demanda na lista" title="Ir para a demanda na lista"><I.expand /></button>}
         <button className="iconbtn" onClick={() => ui.open(null)} aria-label="Fechar detalhe"><I.x /></button>
       </header>
       <div className="dbody">
@@ -121,9 +127,10 @@ export function Detail({ m }: { m: Model }) {
               {PRI.map((l, i) => <option key={i} value={i}>{l}</option>)}
             </select>
           </dd>
-          <dt>Referência</dt>
+          <dt>{m.isMeeting(d) ? 'Com quem' : 'Referência'}</dt>
           <dd>
-            <input className="input" defaultValue={d.external_ref ?? ''} key={d.id + (d.external_ref ?? '')} placeholder="Nº do processo, link…" aria-label="Referência externa"
+            <input className="input" defaultValue={d.external_ref ?? ''} key={d.id + (d.external_ref ?? '')}
+              placeholder={m.isMeeting(d) ? 'Pessoas ou equipe' : 'Nº do processo, link…'} aria-label={m.isMeeting(d) ? 'Com quem' : 'Referência externa'}
               onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== d.external_ref) patch({ external_ref: v }); }} />
           </dd>
           {parent && <><dt>Faz parte de</dt><dd><button className="btn ghost" style={{ padding: 0 }} onClick={() => ui.open(parent.id)}>{parent.title}</button></dd></>}
@@ -151,7 +158,16 @@ export function Detail({ m }: { m: Model }) {
               {depCandidates.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
             </select>
           </dd>
-          <dt>Tempo total</dt><dd className="mono">{dur(d.total_seconds + t.liveExtra(d.id))}{d.pomodoros_count ? ` · ${d.pomodoros_count} pomodoro${d.pomodoros_count > 1 ? 's' : ''}` : ''}</dd>
+          <dt>Estimativa</dt>
+          <dd>
+            <input key={`est-${d.id}-${d.estimated_minutes ?? ''}`} className="input mono" type="number" min={1} style={{ maxWidth: 90 }} aria-label="Estimativa em minutos"
+              defaultValue={d.estimated_minutes ?? ''} placeholder="min"
+              onBlur={(e) => { const v = e.target.value ? Math.max(1, Math.round(+e.target.value)) : null; if (v !== d.estimated_minutes) patch({ estimated_minutes: v }); }} />
+            {' '}min{kids.length > 0 && kidsEst > 0 && <span className="hint"> · com subtarefas: <b className="mono">{dur(((d.estimated_minutes ?? 0) + kidsEst) * 60)}</b></span>}
+          </dd>
+          <dt>Tempo total</dt>
+          <dd className="mono">{dur(ownSecs + kidsSecs)}{d.pomodoros_count ? ` · ${d.pomodoros_count} pomodoro${d.pomodoros_count > 1 ? 's' : ''}` : ''}
+            {kids.length > 0 && <span className="hint"> · própria {dur(ownSecs)} + subtarefas {dur(kidsSecs)}</span>}</dd>
         </dl>
 
         {c && d.due_time && (

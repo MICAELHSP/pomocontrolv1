@@ -229,6 +229,10 @@ export const api = {
   async clearAiKey() {
     must(await sb().rpc('clear_ai_key'));
   },
+  /** Modelos do Gemini que a chave salva pode usar (a lista vem do Google, pela Edge Function). */
+  async listAiModels() {
+    return invokeFn<{ ok: boolean; modelos?: { id: string; nome: string }[]; atual?: string | null; erro?: string }>({ modo: 'modelos' });
+  },
   async testAi() {
     return invokeFn<{ ok: boolean; modelo?: string; erro?: string }>({ modo: 'testar' });
   },
@@ -250,5 +254,12 @@ export const api = {
   },
   async finishPomodoro(status: PomodoroStatus | null) {
     return must(await sb().rpc('finish_pomodoro', { p_status: status })) as Pomodoro | null;
+  },
+  /** Congela a fase (e fecha o trecho de tempo) sem encerrá-la. */
+  async pausePomodoro() {
+    return must(await sb().rpc('pause_pomodoro')) as Pomodoro | null;
+  },
+  async resumePomodoro() {
+    return must(await sb().rpc('resume_pomodoro')) as Pomodoro | null;
   },
 };

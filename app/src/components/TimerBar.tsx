@@ -26,7 +26,7 @@ export function TimerBar({ m }: { m: Model }) {
         {t.running
           ? <button className="btn" disabled={t.busy} onClick={t.pause}><I.pause />Pausar</button>
           : <button className="btn focus" disabled={t.busy} onClick={t.resume}><I.play />Iniciar</button>}
-        <button className="iconbtn" disabled={t.busy || !t.running} onClick={t.stop} title="Parar e gravar sessão" aria-label="Parar e gravar sessão"><I.stop /></button>
+        <button className="iconbtn" disabled={t.busy || (!t.running && !t.paused)} onClick={t.stop} title="Parar e gravar sessão" aria-label="Parar e gravar sessão"><I.stop /></button>
         <label className="tb-switch"><span className="sr">Trocar atividade</span>
           <ActivityPicker m={m} value={t.current} placeholder="Trocar para…" title="Trocar atividade sem parar o pomodoro" onPick={(a) => t.start(a)} />
         </label>

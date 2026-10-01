@@ -8,8 +8,10 @@ export function phaseMinutes(kind: PomodoroKind, st: PomodoroSettings): number {
   return kind === 'focus' ? st.focus_minutes : kind === 'short_break' ? st.short_break_minutes : st.long_break_minutes;
 }
 
-export function remainingSeconds(p: Pick<Pomodoro, 'planned_minutes' | 'started_at'>, now = Date.now()): number {
-  return p.planned_minutes * 60 - secondsBetween(p.started_at, null, now);
+/** Tempo que falta na fase; o tempo pausado não conta (e a fase pausada fica parada). */
+export function remainingSeconds(p: Pick<Pomodoro, 'planned_minutes' | 'started_at' | 'paused_at' | 'paused_seconds'>, now = Date.now()): number {
+  const stopped = (p.paused_seconds ?? 0) + (p.paused_at ? secondsBetween(p.paused_at, null, now) : 0);
+  return p.planned_minutes * 60 - (secondsBetween(p.started_at, null, now) - stopped);
 }
 
 /** Fase seguinte: foco -> intervalo (ou pausa longa no último ciclo) -> foco do próximo ciclo. */

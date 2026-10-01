@@ -35,8 +35,22 @@ interface OutlookBridge {
   events(from: string, to: string): Promise<OutlookEvent[]>;
 }
 
+export interface MiniState { enabled: boolean; pinned: boolean }
+interface MiniBridge {
+  get(): Promise<MiniState>;
+  set(patch: Partial<MiniState>): Promise<MiniState>;
+  show(): Promise<boolean>;
+  hide(): Promise<boolean>;
+  openMain(): Promise<boolean>;
+}
+
 declare global {
-  interface Window { pauta?: { platform: string; isElectron: boolean; outlook?: OutlookBridge } }
+  interface Window {
+    pauta?: {
+      platform: string; isElectron: boolean; outlook?: OutlookBridge; mini?: MiniBridge;
+      changed?: () => void; onChanged?: (cb: () => void) => () => void;
+    };
+  }
 }
 
 export const outlook = (): OutlookBridge | undefined => (typeof window === 'undefined' ? undefined : window.pauta?.outlook);

@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
 export type View = 'hoje' | 'calendario' | 'demandas' | 'rotinas' | 'foco' | 'config';
-export type CfgTab = 'ia' | 'jornada' | 'outlook' | 'conta';
+export type CfgTab = 'ia' | 'jornada' | 'outlook' | 'mini' | 'conta';
 
 interface UI {
   view: View;

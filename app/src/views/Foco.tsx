@@ -62,7 +62,7 @@ export function Foco({ m }: { m: Model }) {
             ? <button className="btn" disabled={t.busy} onClick={t.pause}><I.pause />Pausar</button>
             : <button className="btn focus" disabled={t.busy} onClick={t.resume}><I.play />Iniciar foco</button>}
           <button className="btn" disabled={t.busy || !p} onClick={t.skip}><I.skip />Pular fase</button>
-          <button className="btn" disabled={t.busy || !t.running} onClick={t.stop}><I.stop />Parar e gravar</button>
+          <button className="btn" disabled={t.busy || (!t.running && !t.paused)} onClick={t.stop}><I.stop />Parar e gravar</button>
         </div>
         {!st.enabled && <p className="note">Pomodoro desligado: só o cronômetro da atividade conta.</p>}
       </div>

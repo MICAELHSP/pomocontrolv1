@@ -45,6 +45,13 @@ describe('dayStats', () => {
     expect(st.byGroup.get('g1')).toBe(60);
     expect(st.byKey.get('f:E-mails')).toBe(30);
   });
+  it('demanda-reunião conta como reunião e não soma de novo com o Outlook', () => {
+    const st = dayStats('2026-10-01', [
+      { key: 'd:A', start: 540, end: 600 },
+      { key: 'd:M', start: 600, end: 660 }, // demanda-reunião 10:00–11:00
+    ], [{ title: 'Comitê', start: '10:30', end: '11:30' }], DEFAULT_JORNADA, groupOf, (k) => k === 'd:M');
+    expect(st).toMatchObject({ dem: 60, meet: 90, used: 150 });
+  });
   it('fim de semana e feriado não têm jornada', () => {
     expect(dayStats('2026-10-03', [{ key: 'd:A', start: 600, end: 660 }], [], DEFAULT_JORNADA, groupOf)).toMatchObject({ J: 0, pct: null, used: 60 });
     expect(dayStats('2026-10-12', [], [], DEFAULT_JORNADA, groupOf).J).toBe(0);

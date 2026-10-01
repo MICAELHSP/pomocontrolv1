@@ -24,6 +24,8 @@ interface TimerCtx {
   /** atividade está na fila do intervalo ("Próximo: …") */
   queued: boolean;
   running: boolean;
+  /** fase do pomodoro pausada (o tempo que falta fica parado) */
+  paused: boolean;
   sessionSeconds: number;
   remaining: number;
   label: string;
@@ -55,7 +57,11 @@ function notify(title: string, body: string) {
   } catch { /* sem notificações */ }
 }
 
-export function TimerProvider({ children }: { children: ReactNode }) {
+/**
+ * `lead` = esta janela vira as fases sozinha e mostra notificações. Só a janela principal
+ * lidera; a mini-janela apenas mostra e age, para a fase não avançar duas vezes.
+ */
+export function TimerProvider({ children, lead = true }: { children: ReactNode; lead?: boolean }) {
   const timer = useTimer();
   const settingsQ = useSettings();
   const demandsQ = useDemands();
@@ -72,8 +78,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
-  }, []);
+    if (lead && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  }, [lead]);
+
+  // A outra janela (principal ou mini) mexeu no cronômetro: relê.
+  useEffect(() => window.pauta?.onChanged?.(() => { invalidate(qk.timer, qk.demands); }), [invalidate]);
 
   const settings = settingsQ.data ?? DEFAULT_SETTINGS;
   const entry = clean(timer.data?.entry);
@@ -90,7 +99,8 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const last = entries.length ? entries[entries.length - 1] : null;
   const current: Act | null = entry ? actOf(entry) : queuedAct ?? paused ?? (last ? actOf(last) : null);
   const queued = !entry && !!queuedAct;
-  const running = !!entry || !!pomodoro;
+  const phasePaused = !!pomodoro?.paused_at;
+  const running = (!!entry || !!pomodoro) && !phasePaused;
 
   // Sessão = trechos seguidos da mesma atividade (o foco novo reabre o trecho).
   const sessionSeconds = useMemo(() => {
@@ -110,14 +120,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, [entry, entries, now]);
 
   const remaining = pomodoro ? remainingSeconds(pomodoro, now) : settings.focus_minutes * 60;
-  const label = pomodoro ? phaseLabel(pomodoro.kind, pomodoro.cycle, settings.cycles_before_long) : 'Pomodoro parado';
+  const label = pomodoro ? phaseLabel(pomodoro.kind, pomodoro.cycle, settings.cycles_before_long) + (phasePaused ? ' (pausado)' : '') : 'Pomodoro parado';
 
   const refresh = useCallback(() => invalidate(qk.timer, qk.demands), [invalidate]);
 
   /** Executa uma ação do cronômetro; devolve false se falhou (o erro vira toast). */
   const run = useCallback(async (fn: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
-    try { await fn(); return true; } catch (e) { toast(errMsg(e)); return false; } finally { await refresh(); setBusy(false); }
+    try { await fn(); return true; } catch (e) { toast(errMsg(e)); return false; } finally { await refresh(); window.pauta?.changed?.(); setBusy(false); }
   }, [refresh, toast]);
 
   /** Ciclo do próximo foco quando não há pomodoro rodando. */
@@ -132,6 +142,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const prev = entry ? actOf(entry) : null;
     const switching = !!prev && !sameAct(prev, a);
     let p = pomodoro;
+    if (p?.paused_at) p = (await api.resumePomodoro()) ?? p;
     if (settings.enabled && !p) p = await api.startPomodoro('focus', nextFocusCycle());
     const res = await api.startActivity(a);
     setPaused(null);
@@ -144,11 +155,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     }
   }), [run, entry, pomodoro, settings, nextFocusCycle, actName, toast]);
 
-  // Pausar: grava o trecho e interrompe a fase (um pomodoro não se divide no tempo).
+  // Pausar: grava o trecho e congela a fase com o tempo que falta. Só o Parar zera o pomodoro.
   const pause = useCallback(() => run(async () => {
     if (current) setPaused(current);
-    await api.stopActivity();
-    if (pomodoro) await api.finishPomodoro('interrupted');
+    if (pomodoro) await api.pausePomodoro();
+    else await api.stopActivity();
   }), [run, current, pomodoro]);
 
   const resume = useCallback(async () => {
@@ -173,23 +184,23 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   // Fim da fase: passa sozinho para a próxima (foco -> intervalo -> foco).
   useEffect(() => {
-    if (!pomodoro || busy || remaining > 0 || advancing.current === pomodoro.id) return;
+    if (!lead || !pomodoro || busy || remaining > 0 || advancing.current === pomodoro.id) return;
     advancing.current = pomodoro.id;
     const n = nextPhase(pomodoro, settings);
     const msg = pomodoro.kind === 'focus'
       ? (n.kind === 'long_break' ? `${settings.cycles_before_long} focos concluídos. Pausa longa.` : 'Foco concluído. Hora do intervalo.')
       : 'Intervalo encerrado. Novo foco começou.';
     run(async () => { await api.startPomodoro(n.kind, n.cycle); }).then((ok) => {
-      if (ok) { toast(msg); notify('Pauta', msg); return; }
+      if (ok) { toast(msg); notify('Pulso Control', msg); return; }
       // Falhou (rede, token): libera nova tentativa em 15 s em vez de travar em 00:00.
       setTimeout(() => { if (advancing.current === pomodoro.id) advancing.current = null; }, 15_000);
     });
-  }, [pomodoro, busy, remaining, settings, run, toast]);
+  }, [lead, pomodoro, busy, remaining, settings, run, toast]);
 
   // Pomodoro desligado nos ajustes: encerra a fase que estiver rodando.
   useEffect(() => {
-    if (settingsQ.data && !settings.enabled && pomodoro && !busy) run(() => api.finishPomodoro(null));
-  }, [settingsQ.data, settings.enabled, pomodoro, busy, run]);
+    if (lead && settingsQ.data && !settings.enabled && pomodoro && !busy) run(() => api.finishPomodoro(null));
+  }, [lead, settingsQ.data, settings.enabled, pomodoro, busy, run]);
 
   const liveExtra = useCallback((demandId: string) => {
     if (!entry || entry.demand_id !== demandId) return 0;
@@ -199,7 +210,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, [entry, demandsQ.dataUpdatedAt, now]);
 
   const value: TimerCtx = {
-    now, settings, entry, pomodoro, entries, pomodoros, current, queued, running,
+    now, settings, entry, pomodoro, entries, pomodoros, current, queued, running, paused: phasePaused,
     sessionSeconds, remaining, label, busy, start, pause, resume, stop, skip, liveExtra, actName,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

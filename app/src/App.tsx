@@ -17,8 +17,12 @@ import { Calendario, CalendarioToolbar, type CalMode } from './views/Calendario'
 import { Detail } from './views/Detail';
 import { Foco } from './views/Foco';
 import { Hoje, HojeToolbar } from './views/Hoje';
+import { Mini } from './views/Mini';
 import { Connect, Login } from './views/Login';
 import { Rotinas, RotinasToolbar } from './views/Rotinas';
+
+const isMini = window.location.hash === '#mini';
+if (isMini) document.documentElement.classList.add('is-mini');
 
 export default function App() {
   const [conn, setConn] = useState(() => getConn());
@@ -35,6 +39,10 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, [conn, qc]);
 
+  if (isMini) {
+    if (!conn || !session) return <div className="mw"><span className="mini-task">{session === undefined && conn ? 'Carregando…' : 'Abra o Pulso Control e entre na sua conta.'}</span></div>;
+    return <TimerProvider lead={false}><Mini /></TimerProvider>;
+  }
   if (!conn) return <Connect onDone={() => setConn(getConn())} />;
   if (session === undefined) return <div className="loading">Carregando…</div>;
   if (!session) return <Login />;
@@ -54,6 +62,13 @@ function Shell() {
   const invalidate = useInvalidate();
   const dem = useDemandasState();
   const [newRoutine, setNewRoutine] = useState(0);
+  // Arquivo solto fora da agenda: não deixa a janela abrir o arquivo no lugar do app.
+  useEffect(() => {
+    const block = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); };
+    window.addEventListener('dragover', block);
+    window.addEventListener('drop', block);
+    return () => { window.removeEventListener('dragover', block); window.removeEventListener('drop', block); };
+  }, []);
   const ai = useAiSettings();
   const openAI = () => (ai.isSuccess && !ai.data?.key_hint ? ui.openConfig('ia', true) : ui.setAiOpen(true));
   const [calMode, setCalMode] = useState<CalMode>('semana');

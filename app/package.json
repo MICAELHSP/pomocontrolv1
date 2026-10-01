@@ -1,7 +1,7 @@
 {
   "name": "pauta",
-  "productName": "Pauta",
-  "version": "1.0.0",
+  "productName": "Pulso Control",
+  "version": "1.2.3",
   "private": true,
   "description": "Demandas, rotinas, cronômetro por atividade e pomodoro",
   "main": "electron/main.cjs",
@@ -39,7 +39,7 @@
   },
   "build": {
     "appId": "br.micael.pauta",
-    "productName": "Pauta",
+    "productName": "Pulso Control",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -62,14 +62,14 @@
       "target": "AppImage",
       "icon": "build/icon.png"
     },
-    "artifactName": "Pauta-Setup-${version}.${ext}",
+    "artifactName": "PulsoControl-Setup-${version}.${ext}",
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Pauta"
+      "shortcutName": "Pulso Control"
     },
     "publish": {
       "provider": "github",
