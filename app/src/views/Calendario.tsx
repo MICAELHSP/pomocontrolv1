@@ -11,7 +11,7 @@ import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, type
 import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 import { useToast } from '../components/Toast';
-import type { Meeting } from '../lib/types';
+import type { Demand, Meeting } from '../lib/types';
 import { useFitHeight } from '../lib/useFit';
 import { useIcsDrop } from '../lib/icsDrop';
 import { useTimerCtx } from '../timer/TimerContext';
@@ -102,7 +102,7 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
         {cal.error ? <div className="cfgbanner">Erro ao ler o Outlook: {errMsg(cal.error)}</div> : null}
         {mode === 'mes'
           ? <MonthGrid days={monthDays} month={monthFirst} sel={sel} onSel={setSel} onShift={shift} colorOfGroup={colorOfGroup} m={m} jMin={jornadaMinutes(j)} jDays={j.days} nameOfKey={nameOfKey} />
-          : <WeekMap days={[0, 1, 2, 3, 4].map((i) => day(addDays(week0, i)))} sel={sel} onSel={setSel} onShift={shift} now={t.now}
+          : <WeekMap days={[0, 1, 2, 3, 4].map((i) => day(addDays(week0, i)))} sel={sel} onSel={setSel} onShift={shift} now={t.now} isMeeting={m.isMeeting}
               colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} onOpen={onOpen} onMeeting={setMeetSel} />}
       </div>
       <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onOpen={onOpen} onMeeting={setMeetSel} isMeetingKey={m.isMeetingKey} onJornada={() => setModal('jornada')} />
@@ -196,7 +196,8 @@ function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jD
 
 const START = 8 * 60, END = 18 * 60;
 
-function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen, onMeeting }: {
+function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen, onMeeting, isMeeting }: {
+  isMeeting: (d: Demand) => boolean;
   days: Day[]; sel: string; onSel: (k: string) => void; onShift: (n: number) => void; now: number;
   colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void; onMeeting: (mt: Meeting) => void;
 }) {
@@ -241,6 +242,12 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, 
               {dues(x.k).map((d) => {
                 const tm = toMinutes(d.due_time)!;
                 if (tm < START || tm > END) return null;
+                // Demanda-reunião aparece como bloco de reunião com a duração estimada, não como entrega.
+                if (isMeeting(d)) {
+                  const b = tm + (d.estimated_minutes ?? 60);
+                  return <div key={d.id} className="wb meet link" style={{ top: wy(tm), height: Math.max(3, wy(b) - wy(tm) - 1) }} title={`Reunião: ${d.title}${d.external_ref ? ' · com ' + d.external_ref : ''} ${hmm(tm)}–${hmm(b)} · clique para abrir`}
+                    onClick={(e) => { e.stopPropagation(); onSel(x.k); onOpen('d:' + d.id); }}><span>{d.title}</span></div>;
+                }
                 return <div key={d.id} className="wdue link" style={{ top: wy(tm) }} title={`Entrega: ${d.title} · clique para abrir`}
                   onClick={(e) => { e.stopPropagation(); onSel(x.k); onOpen('d:' + d.id); }}><span>{shortTime(d.due_time)} entrega</span></div>;
               })}

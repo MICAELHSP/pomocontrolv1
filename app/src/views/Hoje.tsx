@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
+import { lanes } from '../lib/lanes';
 import { conflictOf, DemandRow } from '../components/DemandRow';
 import { I } from '../components/Icons';
 import { isOpen, type Model } from '../data/model';
@@ -48,6 +49,16 @@ export function Hoje({ m }: { m: Model }) {
   // Demanda-reunião criada de um evento já aparece como a reunião da agenda; não repete como bloco de foco.
   const blocks = open.filter((d) => d.planned_start && !m.isMeeting(d) && new Date(d.planned_start).toDateString() === nowD.toDateString());
 
+  // Demanda-reunião de hoje vira bloco de reunião com a duração estimada (a do Outlook já aparece, não repete).
+  const meetDemands = today.filter((d) => m.isMeeting(d) && d.due_time
+    && !meetings.some((mt) => mt.title === d.title && mt.start === shortTime(d.due_time)));
+  const dueToday = today.filter((d) => d.due_time && !m.isMeeting(d));
+  const dueMins = dueToday.map((d) => toMinutes(d.due_time)!);
+  // Bloco que cruza um marcador de entrega deixa espaço à direita para o rótulo não cobrir o texto.
+  const underDue = (a: number, b: number) => (dueMins.some((x) => x >= a - 10 && x <= b + 10) ? 96 : undefined);
+  // Blocos curtos usam uma linha só (nome e horário lado a lado); bem curtos só no tooltip.
+  const evSize = (h: number) => (h < 12 ? 'tiny' : h < 36 ? 'one' : h >= 56 ? 'tall' : '');
+
   const since = new Date(nowD); since.setHours(0, 0, 0, 0);
   const byAct = [...secondsByActivity(t.entries, since, t.now)].sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...byAct.map((r) => r[1]));
@@ -64,6 +75,30 @@ export function Hoje({ m }: { m: Model }) {
 
   const list = [...late, ...today.filter((d) => !d.parent_id)]
     .sort((a, b) => `${a.due_date}${a.due_time ?? '99'}`.localeCompare(`${b.due_date}${b.due_time ?? '99'}`));
+
+  // Tudo o que vai na agenda; o que acontece ao mesmo tempo fica lado a lado, sem um cobrir o outro.
+  const evs: AgendaEv[] = [
+    ...worked.map((w): AgendaEv => {
+      const d = w.key.startsWith('d:') ? m.byId.get(w.key.slice(2)) : undefined;
+      const col = m.isMeetingKey(w.key) ? 'var(--meet)' : d ? m.colorOf(d) : 'var(--muted)';
+      const sub = `${hm(w.start)}–${hm(w.end)}`;
+      return { id: 'w' + w.key + w.start, a: w.start, b: w.end, cls: 'work', name: nameOf(w.key), sub,
+        title: `Trabalhado: ${nameOf(w.key)} · ${sub} (${dur((w.end - w.start) * 60)})`, onClick: () => d && ui.open(d.id),
+        style: { borderLeftColor: col, background: `color-mix(in srgb, ${col} 22%, var(--surface))` } };
+    }),
+    ...meetings.map((mt): AgendaEv => ({ id: 'm' + (mt.id ?? mt.title) + mt.start, a: toMinutes(mt.start)!, b: toMinutes(mt.end)!, cls: 'meet',
+      name: mt.title, sub: `${mt.start}–${mt.end} · Outlook`, title: `${mt.title} · ${mt.start}–${mt.end} · clique para ver`, onClick: () => setMeetSel(mt) })),
+    ...meetDemands.map((d): AgendaEv => {
+      const a = toMinutes(d.due_time)!, b = a + (d.estimated_minutes ?? 60);
+      return { id: 'r' + d.id, a, b, cls: 'meet', name: d.title, sub: `${hm(a)}–${hm(b)}${d.external_ref ? ' · ' + d.external_ref : ''}`,
+        title: `Reunião: ${d.title}${d.external_ref ? ' · com ' + d.external_ref : ''} · ${hm(a)}–${hm(b)}`, onClick: () => ui.open(d.id) };
+    }),
+    ...blocks.map((d): AgendaEv => {
+      const s = new Date(d.planned_start!); const a = s.getHours() * 60 + s.getMinutes(), b = a + (d.estimated_minutes ?? 60);
+      return { id: 'b' + d.id, a, b, cls: 'blk', name: `Foco: ${d.title}`, sub: `${hm(a)}–${hm(b)}`, min: 18,
+        title: `Foco: ${d.title} · ${hm(a)}–${hm(b)}`, onClick: () => ui.open(d.id) };
+    }),
+  ];
 
   const hours = [];
   for (let h = 8; h <= 18; h++) hours.push(h);
@@ -82,37 +117,21 @@ export function Hoje({ m }: { m: Model }) {
           <h3>Agenda do dia <CalendarSource onOpen={() => setCalOpen(true)} /></h3>
           <div className="tlwrap" ref={tlRef}><div className="tl" style={{ height: ((END - START) / 60) * PX + 4 }}>
             {hours.map((h) => <div key={h} className="hr" style={{ top: y(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}:00</span></div>)}
-            {worked.map((w) => {
-              const h = y(w.end) - y(w.start);
-              const d = w.key.startsWith('d:') ? m.byId.get(w.key.slice(2)) : undefined;
-              const col = m.isMeetingKey(w.key) ? 'var(--meet)' : d ? m.colorOf(d) : 'var(--muted)';
-              const label = `${nameOf(w.key)} · ${hm(w.start)}–${hm(w.end)} (${dur((w.end - w.start) * 60)})`;
+            {lanes(evs).map(({ e, col, cols }) => {
+              const h = y(e.b) - y(e.a);
               return (
-                <div key={w.key + w.start} className="ev work" title={`Trabalhado: ${label}`} onClick={() => d && ui.open(d.id)}
-                  style={{ top: y(w.start), height: Math.max(4, h - 2), borderLeftColor: col, background: `color-mix(in srgb, ${col} 22%, var(--surface))`, padding: h < 20 ? '0 8px' : undefined }}>
-                  {h >= 20 && <><b>{nameOf(w.key)}</b><span className="mono">{hm(w.start)}–{hm(w.end)}</span></>}
+                <div key={e.id} className={`ev ${e.cls} ${evSize(h)}`} title={e.title} onClick={e.onClick}
+                  style={{ ...e.style, top: y(e.a), height: Math.max(e.min ?? 4, h - 2), paddingRight: col === cols - 1 ? underDue(e.a, e.b) : undefined,
+                    left: `calc(8px + (100% - 16px) * ${col / cols})`, width: `calc((100% - 16px) / ${cols} - ${cols > 1 ? 3 : 0}px)`, right: 'auto' }}>
+                  {h >= 12 && <><b>{e.name}</b><span className="mono">{e.sub}</span></>}
                 </div>
               );
             })}
-            {meetings.map((mt) => (
-              <div key={(mt.id ?? mt.title) + mt.start} className="ev meet" title={`${mt.title} · clique para ver`} onClick={() => setMeetSel(mt)} style={{ top: y(toMinutes(mt.start)!), height: y(toMinutes(mt.end)!) - y(toMinutes(mt.start)!) - 2 }}>
-                <b>{mt.title}</b><span className="mono">{mt.start}–{mt.end}</span> · Outlook
-              </div>
-            ))}
-            {blocks.map((d) => {
-              const s = new Date(d.planned_start!); const sm = s.getHours() * 60 + s.getMinutes();
-              const em = sm + (d.estimated_minutes ?? 60);
-              return (
-                <div key={d.id} className="ev blk" onClick={() => ui.open(d.id)} style={{ top: y(sm), height: Math.max(18, y(em) - y(sm) - 2) }}>
-                  <b>Foco: {d.title}</b><span className="mono">{hm(sm)}–{hm(em)}</span>
-                </div>
-              );
-            })}
-            {today.filter((d) => d.due_time).map((d) => {
+            {dueToday.map((d) => {
               const c = conflictOf(d, m);
               return (
                 <div key={d.id} className={`due ${c ? 'conf' : ''}`} style={{ top: y(toMinutes(d.due_time)!) }}>
-                  <span>{c ? 'Conflito · ' : ''}Entrega {shortTime(d.due_time)} · {d.title.length > 28 ? d.title.slice(0, 28) + '…' : d.title}</span>
+                  <span title={`${c ? 'Conflito com reunião · ' : ''}Entrega ${shortTime(d.due_time)} · ${d.title}`} onClick={() => ui.open(d.id)}>{c ? '⚠ ' : ''}Entrega {shortTime(d.due_time)}</span>
                 </div>
               );
             })}
@@ -145,3 +164,6 @@ export function Hoje({ m }: { m: Model }) {
     </>
   );
 }
+
+type AgendaEv = { id: string; a: number; b: number; cls: string; name: string; sub: string; title: string; onClick: () => void; style?: CSSProperties; min?: number };
+
