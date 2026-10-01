@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { meetingAt, nextFreeTime } from './conflict';
-import { toDayMeetings, type OutlookEvent } from './outlook';
+import { fromRow, staleIds, toDayMeetings, type OutlookEvent } from './outlook';
 
 // Datas montadas no fuso local, para o teste valer em qualquer fuso.
 const ev = (id: string, s: Date, e: Date): OutlookEvent => ({ id, title: id, start: s.toISOString(), end: e.toISOString(), allDay: false, showAs: 'busy', webLink: null });
@@ -48,5 +48,17 @@ describe('blocksTime', () => {
       { ...ev('Talvez', d(14), d(15)), showAs: 'tentative' },
     ]);
     expect(map.get('2026-10-07')!.map((m) => m.title)).toEqual(['Reunião', 'Talvez']);
+  });
+});
+
+describe('cópia no banco', () => {
+  it('apaga só o que sumiu do Outlook', () => {
+    const d = new Date(2026, 9, 7, 9);
+    const events = [ev('a', d, new Date(+d + 3600e3)), ev('b', d, new Date(+d + 3600e3))];
+    expect(staleIds([{ id: '1', external_id: 'a' }, { id: '2', external_id: 'x' }, { id: '3', external_id: 'b' }], events)).toEqual(['2']);
+  });
+  it('linha do banco volta como evento', () => {
+    expect(fromRow({ external_id: 'e1', subject: null, starts_at: 's', ends_at: 'e', is_all_day: false, show_as: null, location: 'Sala', web_link: null }))
+      .toEqual({ id: 'e1', title: '(sem assunto)', start: 's', end: 'e', allDay: false, showAs: 'busy', webLink: null, location: 'Sala' });
   });
 });

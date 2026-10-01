@@ -1,6 +1,6 @@
 # Conectar o calendário do Outlook ao Pauta
 
-O Pauta lê as reuniões do seu Outlook (só leitura) para mostrar na agenda da tela Hoje e avisar quando o prazo de uma demanda cai em cima de uma reunião. Nada é gravado no Outlook nem no Supabase.
+O Pauta lê as reuniões do seu Outlook (só leitura) para mostrar na agenda da tela Hoje e avisar quando o prazo de uma demanda cai em cima de uma reunião. Nada é alterado no Outlook. Uma cópia das reuniões (assunto, início, fim, local e link) fica no Supabase do Pauta, atualizada a cada 5 minutos, para o histórico do Calendário e o cálculo de ocupação; reuniões canceladas ou recusadas são apagadas da cópia. Não importa se você usa o Outlook no navegador ou instalado: o Pauta lê direto da sua conta Microsoft.
 
 Para isso a Microsoft exige que você registre o Pauta como um "aplicativo" na sua conta. É grátis e leva uns 5 minutos.
 
