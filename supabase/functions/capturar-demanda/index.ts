@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     // Modelos que esta chave pode usar para gerar texto (para a lista de seleção do app)
     const r = await fetch(`${GEMINI_BASE}?pageSize=1000`, { headers: { "x-goog-api-key": chave } }).catch(() => null);
     if (!r?.ok) {
-      if (r) console.error("modelos", r.status, await r.text());
+      if (r) console.error("modelos", r.status, await r.clone().text());
       return json({ ok: false, erro: r ? await erroDoGoogle(r, MODEL, true) : "Não consegui falar com o Google. Tente de novo." });
     }
     const lista: { name: string; displayName?: string; supportedGenerationMethods?: string[] }[] = (await r.json()).models ?? [];
