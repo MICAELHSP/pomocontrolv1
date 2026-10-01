@@ -55,7 +55,11 @@ function notify(title: string, body: string) {
   } catch { /* sem notificações */ }
 }
 
-export function TimerProvider({ children }: { children: ReactNode }) {
+/**
+ * `lead` = esta janela vira as fases sozinha e mostra notificações. Só a janela principal
+ * lidera; a mini-janela apenas mostra e age, para a fase não avançar duas vezes.
+ */
+export function TimerProvider({ children, lead = true }: { children: ReactNode; lead?: boolean }) {
   const timer = useTimer();
   const settingsQ = useSettings();
   const demandsQ = useDemands();
@@ -72,8 +76,11 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
-  }, []);
+    if (lead && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  }, [lead]);
+
+  // A outra janela (principal ou mini) mexeu no cronômetro: relê.
+  useEffect(() => window.pauta?.onChanged?.(() => { invalidate(qk.timer, qk.demands); }), [invalidate]);
 
   const settings = settingsQ.data ?? DEFAULT_SETTINGS;
   const entry = clean(timer.data?.entry);
@@ -117,7 +124,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   /** Executa uma ação do cronômetro; devolve false se falhou (o erro vira toast). */
   const run = useCallback(async (fn: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
-    try { await fn(); return true; } catch (e) { toast(errMsg(e)); return false; } finally { await refresh(); setBusy(false); }
+    try { await fn(); return true; } catch (e) { toast(errMsg(e)); return false; } finally { await refresh(); window.pauta?.changed?.(); setBusy(false); }
   }, [refresh, toast]);
 
   /** Ciclo do próximo foco quando não há pomodoro rodando. */
@@ -173,7 +180,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   // Fim da fase: passa sozinho para a próxima (foco -> intervalo -> foco).
   useEffect(() => {
-    if (!pomodoro || busy || remaining > 0 || advancing.current === pomodoro.id) return;
+    if (!lead || !pomodoro || busy || remaining > 0 || advancing.current === pomodoro.id) return;
     advancing.current = pomodoro.id;
     const n = nextPhase(pomodoro, settings);
     const msg = pomodoro.kind === 'focus'
@@ -184,12 +191,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       // Falhou (rede, token): libera nova tentativa em 15 s em vez de travar em 00:00.
       setTimeout(() => { if (advancing.current === pomodoro.id) advancing.current = null; }, 15_000);
     });
-  }, [pomodoro, busy, remaining, settings, run, toast]);
+  }, [lead, pomodoro, busy, remaining, settings, run, toast]);
 
   // Pomodoro desligado nos ajustes: encerra a fase que estiver rodando.
   useEffect(() => {
-    if (settingsQ.data && !settings.enabled && pomodoro && !busy) run(() => api.finishPomodoro(null));
-  }, [settingsQ.data, settings.enabled, pomodoro, busy, run]);
+    if (lead && settingsQ.data && !settings.enabled && pomodoro && !busy) run(() => api.finishPomodoro(null));
+  }, [lead, settingsQ.data, settings.enabled, pomodoro, busy, run]);
 
   const liveExtra = useCallback((demandId: string) => {
     if (!entry || entry.demand_id !== demandId) return 0;

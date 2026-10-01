@@ -425,3 +425,29 @@ p.err{font-size:13px;margin:0}
   .occ4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .navbottom{margin-top:0;border-top:0;padding-top:0}
 }
+
+/* ---------- mini-janela flutuante (#mini) ---------- */
+html.is-mini,html.is-mini body{background:var(--surface);overflow:hidden;height:100%}
+.mini{height:100vh;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-left:4px solid var(--muted);background:var(--surface);-webkit-app-region:drag;user-select:none}
+.mini.ph-focus{border-left-color:var(--focus)}
+.mini.ph-brk{border-left-color:var(--ok)}
+.mini button,.mini select{-webkit-app-region:no-drag}
+.mini-top,.mini-bot{display:flex;align-items:center;gap:8px;min-width:0}
+.mini-phase{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.mini-phase i{width:8px;height:8px;border-radius:50%;background:currentColor;display:block}
+.ph-focus .mini-phase{color:var(--focus)}
+.ph-brk .mini-phase{color:var(--ok)}
+.mini-time{font-size:20px;font-weight:600;line-height:1;letter-spacing:.02em}
+.mini-win{margin-left:auto;display:flex;gap:2px}
+.mini-ic{width:22px;height:22px;display:grid;place-items:center;border:0;border-radius:5px;background:none;color:var(--muted);padding:0;cursor:pointer}
+.mini-ic:hover{background:var(--surface-2);color:var(--fg)}
+.mini-ic.on{color:var(--accent);background:var(--accent-soft)}
+.mini-ic svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.mini-btn{width:28px;height:28px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--fg);cursor:pointer;padding:0}
+.mini-btn.go{background:var(--focus);border-color:var(--focus);color:#fff}
+.mini-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2}
+.mini-btn:disabled,.mini-ic:disabled{opacity:.5;cursor:default}
+.mini-task{flex:1;min-width:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-swap{position:relative;flex:none}
+.mini-select{position:absolute;inset:0;width:22px;height:22px;opacity:0;pointer-events:none;border:0}
+html.is-mini .toast{left:6px;right:6px;bottom:4px;transform:none;max-width:none;font-size:11px;padding:4px 8px}

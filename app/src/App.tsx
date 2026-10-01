@@ -16,8 +16,12 @@ import { Calendario, CalendarioToolbar, type CalMode } from './views/Calendario'
 import { Detail } from './views/Detail';
 import { Foco } from './views/Foco';
 import { Hoje, HojeToolbar } from './views/Hoje';
+import { Mini } from './views/Mini';
 import { Connect, Login } from './views/Login';
 import { Rotinas, RotinasToolbar } from './views/Rotinas';
+
+const isMini = window.location.hash === '#mini';
+if (isMini) document.documentElement.classList.add('is-mini');
 
 export default function App() {
   const [conn, setConn] = useState(() => getConn());
@@ -34,6 +38,10 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, [conn, qc]);
 
+  if (isMini) {
+    if (!conn || !session) return <div className="mini"><span className="mini-task">{session === undefined && conn ? 'Carregando…' : 'Abra o Pauta e entre na sua conta.'}</span></div>;
+    return <TimerProvider lead={false}><Mini /></TimerProvider>;
+  }
   if (!conn) return <Connect onDone={() => setConn(getConn())} />;
   if (session === undefined) return <div className="loading">Carregando…</div>;
   if (!session) return <Login />;

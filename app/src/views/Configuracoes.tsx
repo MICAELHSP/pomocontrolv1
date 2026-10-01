@@ -4,6 +4,7 @@ import { useToast } from '../components/Toast';
 import { api, qk, useAiSettings, useInvalidate } from '../data/api';
 import { clearConn, errMsg, getConn, sb } from '../lib/supabase';
 import { useUI, type CfgTab } from '../ui';
+import type { MiniState } from '../lib/outlook';
 import { CalendarioSettings } from './CalendarioSettings';
 import { JornadaSettings } from './JornadaSettings';
 
@@ -13,7 +14,7 @@ export function Configuracoes() {
   const ui = useUI();
   const tabs: [CfgTab, string, boolean][] = [
     ['ia', 'Inteligência artificial', true], ['jornada', 'Jornada de trabalho', true],
-    ['outlook', 'Calendário (Outlook)', true], ['conta', 'Conta', true],
+    ['outlook', 'Calendário (Outlook)', true], ['mini', 'Mini-janela', true], ['conta', 'Conta', true],
   ];
   return (
     <div className="cfgwrap">
@@ -23,6 +24,7 @@ export function Configuracoes() {
       {ui.cfgTab === 'ia' && <IaPanel />}
       {ui.cfgTab === 'jornada' && <section className="panel"><JornadaSettings /></section>}
       {ui.cfgTab === 'outlook' && <section className="panel"><h3 className="cfgh">Calendário (Outlook)</h3><CalendarioSettings /></section>}
+      {ui.cfgTab === 'mini' && <MiniPanel />}
       {ui.cfgTab === 'conta' && <ContaPanel />}
     </div>
   );
@@ -113,6 +115,25 @@ function IaPanel() {
       </div>
       <p className="note">A chave vai criptografada para o Supabase Vault e não pode ser lida de volta pelo app, só trocada ou removida.</p>
       <p className="fine">No plano gratuito, o Google pode usar o que você envia para melhorar os produtos dele. Não envie documentos sigilosos.</p>
+    </section>
+  );
+}
+
+function MiniPanel() {
+  const bridge = window.pauta?.mini;
+  const [st, setSt] = useState<MiniState | null>(null);
+  useEffect(() => { bridge?.get().then(setSt).catch(() => {}); }, [bridge]);
+  const set = (p: Partial<MiniState>) => bridge?.set(p).then(setSt);
+  return (
+    <section className="panel stack" style={{ gap: 14 }}>
+      <div><h3 className="cfgh">Mini-janela</h3>
+        <p className="note">Uma janelinha sempre por cima das outras, com o pomodoro, a tarefa atual, pausar e trocar de tarefa. Aparece quando você minimiza o Pauta. Arraste para onde quiser (por exemplo, o canto da segunda tela); ela lembra a posição.</p></div>
+      {!bridge ? <p className="note">A mini-janela funciona só no app instalado, não no navegador.</p> : st && <>
+        <label className="toggle"><input type="checkbox" checked={st.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Mostrar ao minimizar o Pauta</label>
+        <label className="toggle"><input type="checkbox" checked={st.pinned} onChange={(e) => set({ pinned: e.target.checked })} />Manter aberta mesmo com o Pauta aberto</label>
+        <div className="ai-row"><button className="btn" onClick={() => bridge.show()}>Mostrar agora</button></div>
+        <p className="note">Na própria mini-janela: o alfinete fixa, a seta abre o Pauta e o X fecha até a próxima vez que você minimizar.</p>
+      </>}
     </section>
   );
 }
