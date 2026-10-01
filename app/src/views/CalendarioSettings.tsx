@@ -52,7 +52,7 @@ export function CalendarioSettings() {
   return (
     <div className="cal-set">
       <h3>Calendário (Outlook)</h3>
-      <p className="note">O Pauta só lê as suas reuniões para mostrar na agenda e avisar quando um prazo cai em cima de uma delas. Nada é alterado no Outlook. Uma cópia das reuniões (assunto, horário, local e link) fica no banco do Pauta para o Calendário e a ocupação.</p>
+      <p className="note">O Pulso Control só lê as suas reuniões para mostrar na agenda e avisar quando um prazo cai em cima de uma delas. Nada é alterado no Outlook. Uma cópia das reuniões (assunto, horário, local e link) fica no banco do Pulso Control para o Calendário e a ocupação.</p>
 
       {cal.connected ? (
         <div className="cal-ok">
@@ -61,7 +61,7 @@ export function CalendarioSettings() {
           <p className="note">
             {cal.loading ? 'Lendo as reuniões…' : cal.error ? <span className="err">Erro ao ler o calendário: {errMsg(cal.error)}</span> : `Reuniões de ontem até os próximos 60 dias. Atualizado às ${updated}; atualiza sozinho a cada 5 minutos.`}
           </p>
-          {st && !st.persistent && <p className="cfgbanner">Este computador não permite guardar o login com segurança, então será preciso conectar de novo a cada vez que abrir o Pauta.</p>}
+          {st && !st.persistent && <p className="cfgbanner">Este computador não permite guardar o login com segurança, então será preciso conectar de novo a cada vez que abrir o Pulso Control.</p>}
           <div className="ai-row">
             <button className="btn" onClick={refreshAll}>Atualizar agora</button>
             <button className="btn ghost" disabled={!!busy} onClick={disconnect}>{busy === 'disconnect' ? 'Desconectando…' : 'Desconectar'}</button>
@@ -79,7 +79,7 @@ export function CalendarioSettings() {
             <button className="btn primary" disabled={!clientId.trim() || !!busy} onClick={connect}><I.cal />{busy === 'connect' ? 'Esperando o login no navegador…' : 'Conectar com a Microsoft'}</button>
             {busy === 'connect' && <button className="btn ghost" onClick={cancel}>Cancelar</button>}
           </div>
-          <p className="note">O login abre no seu navegador. Depois de aceitar, volte para o Pauta. <a href={GUIA} target="_blank" rel="noreferrer">Como registrar o aplicativo no Azure</a></p>
+          <p className="note">O login abre no seu navegador. Depois de aceitar, volte para o Pulso Control. <a href={GUIA} target="_blank" rel="noreferrer">Como registrar o aplicativo no Azure</a></p>
         </>
       )}
       {err && <p className="err">{err}</p>}
@@ -100,8 +100,8 @@ function ReminderSettings() {
           {REMINDER_OPTIONS.map((n) => <option key={n} value={n}>{n} minutos</option>)}
         </select>
       </label>
-      {blocked && <p className="cfgbanner">As notificações do Pauta estão bloqueadas no sistema. No Windows: Configurações &gt; Sistema &gt; Notificações &gt; Pauta.</p>}
-      <p className="note">O Pauta precisa estar aberto (pode estar minimizado). Vale para as reuniões do Outlook que aparecem na agenda. Fica guardado neste computador.</p>
+      {blocked && <p className="cfgbanner">As notificações do Pulso Control estão bloqueadas no sistema. No Windows: Configurações &gt; Sistema &gt; Notificações &gt; Pulso Control.</p>}
+      <p className="note">O Pulso Control precisa estar aberto (pode estar minimizado). Vale para as reuniões do Outlook que aparecem na agenda. Fica guardado neste computador.</p>
     </div>
   );
 }

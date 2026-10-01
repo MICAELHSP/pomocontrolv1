@@ -1,3 +1,4 @@
+import logo from '../assets/logo.png';
 import { useState } from 'react';
 import { clearConn, errMsg, getConn, saveConn, sb } from '../lib/supabase';
 
@@ -12,7 +13,7 @@ export function Connect({ onDone }: { onDone: () => void }) {
         saveConn({ url: url.trim().replace(/\/$/, ''), key: key.trim() });
         onDone();
       }}>
-        <h1><span className="brand"><i />Pauta</span></h1>
+        <h1><span className="brand"><img src={logo} alt="" />Pulso Control</span></h1>
         <p className="note">Informe o projeto Supabase onde está o schema demandas_app (Project Settings &gt; API). Fica salvo só neste computador.</p>
         <label className="field"><span>URL do projeto</span><input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" /></label>
         <label className="field"><span>Chave publicável (anon)</span><input className="input" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sb_publishable_…" /></label>
@@ -53,7 +54,7 @@ export function Login() {
   return (
     <div className="login">
       <form onSubmit={submit}>
-        <h1><span className="brand"><i />Pauta</span></h1>
+        <h1><span className="brand"><img src={logo} alt="" />Pulso Control</span></h1>
         <p className="note">Demandas, rotinas, cronômetro por atividade e pomodoro.</p>
         <label className="field"><span>E-mail</span><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label className="field"><span>Senha</span><input className="input" type="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} minLength={6} value={pw} onChange={(e) => setPw(e.target.value)} required /></label>

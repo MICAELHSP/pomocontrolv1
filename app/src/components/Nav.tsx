@@ -1,3 +1,4 @@
+import logo from '../assets/logo.png';
 import { useState } from 'react';
 import { I } from './Icons';
 import { useToast } from './Toast';
@@ -47,7 +48,7 @@ export function Nav({ m }: { m: Model }) {
 
   return (
     <nav className="nav" aria-label="Navegação principal">
-      <div className="brand"><i />Pauta</div>
+      <div className="brand"><img src={logo} alt="" />Pulso Control</div>
       <div className="navlist">
         {VIEWS.map((v) => (
           <button key={v.id} className="navbtn" aria-current={ui.view === v.id && !ui.groupFilter ? 'page' : undefined} onClick={() => ui.go(v.id)}>

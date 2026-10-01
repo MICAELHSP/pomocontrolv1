@@ -15,7 +15,7 @@ export function Mini() {
   const bridge = window.pauta?.mini;
 
   useEffect(() => { bridge?.get().then(setSt).catch(() => {}); }, [bridge]);
-  useEffect(() => { document.title = t.pomodoro ? `${clock(t.remaining)} · Pauta` : 'Pauta'; }, [t.pomodoro, t.remaining]);
+  useEffect(() => { document.title = t.pomodoro ? `${clock(t.remaining)} · Pulso Control` : 'Pulso Control'; }, [t.pomodoro, t.remaining]);
 
   const p = t.pomodoro;
   const phase = !t.settings.enabled ? 'off' : !p ? 'idle' : p.kind === 'focus' ? 'focus' : 'brk';
@@ -38,7 +38,7 @@ export function Mini() {
           <button className={`mini-ic ${st.pinned ? 'on' : ''}`} aria-pressed={st.pinned}
             title={st.pinned ? 'Fixada: continua aberta com o app aberto' : 'Manter aberta mesmo com o app aberto'}
             onClick={() => bridge?.set({ pinned: !st.pinned }).then(setSt)}><I.pin /></button>
-          <button className="mini-ic" title="Abrir o Pauta" aria-label="Abrir o Pauta" onClick={() => bridge?.openMain()}><I.expand /></button>
+          <button className="mini-ic" title="Abrir o Pulso Control" aria-label="Abrir o Pulso Control" onClick={() => bridge?.openMain()}><I.expand /></button>
           <button className="mini-ic" title="Fechar (volta ao minimizar o app)" aria-label="Fechar mini-janela" onClick={() => bridge?.hide()}><I.x /></button>
         </span>
       </div>

@@ -31,7 +31,7 @@ function setupMini(main, { preload, load: loadPage }) {
     mini = new BrowserWindow({
       width: W, height: H, ...position(state),
       frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
-      skipTaskbar: true, alwaysOnTop: true, show: false, title: 'Pauta (mini)',
+      skipTaskbar: true, alwaysOnTop: true, show: false, title: 'Pulso Control (mini)',
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#141C21' : '#FFFFFF',
       webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true },
     });

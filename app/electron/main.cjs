@@ -1,8 +1,12 @@
-// Processo principal do Electron: abre a janela do Pauta.
+// Processo principal do Electron: abre a janela do Pulso Control.
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('node:path');
 const { registerOutlook } = require('./outlook.cjs');
 const { setupMini } = require('./mini.cjs');
+
+// O app se chamava "Pauta": mantém a mesma pasta de dados para não perder o login,
+// a posição da mini-janela e a conexão do Outlook depois da troca de nome.
+app.setPath('userData', path.join(app.getPath('appData'), 'Pauta'));
 
 const devUrl = process.env.VITE_DEV_SERVER_URL;
 const preload = path.join(__dirname, 'preload.cjs');
@@ -20,7 +24,7 @@ function createWindow() {
     height: 820,
     minWidth: 420,
     minHeight: 560,
-    title: 'Pauta',
+    title: 'Pulso Control',
     backgroundColor: '#E9EDEF',
     autoHideMenuBar: true,
     webPreferences: {

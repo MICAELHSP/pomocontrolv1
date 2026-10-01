@@ -40,7 +40,7 @@ export default function App() {
   }, [conn, qc]);
 
   if (isMini) {
-    if (!conn || !session) return <div className="mw"><span className="mini-task">{session === undefined && conn ? 'Carregando…' : 'Abra o Pauta e entre na sua conta.'}</span></div>;
+    if (!conn || !session) return <div className="mw"><span className="mini-task">{session === undefined && conn ? 'Carregando…' : 'Abra o Pulso Control e entre na sua conta.'}</span></div>;
     return <TimerProvider lead={false}><Mini /></TimerProvider>;
   }
   if (!conn) return <Connect onDone={() => setConn(getConn())} />;

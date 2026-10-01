@@ -191,7 +191,7 @@ export function TimerProvider({ children, lead = true }: { children: ReactNode; 
       ? (n.kind === 'long_break' ? `${settings.cycles_before_long} focos concluídos. Pausa longa.` : 'Foco concluído. Hora do intervalo.')
       : 'Intervalo encerrado. Novo foco começou.';
     run(async () => { await api.startPomodoro(n.kind, n.cycle); }).then((ok) => {
-      if (ok) { toast(msg); notify('Pauta', msg); return; }
+      if (ok) { toast(msg); notify('Pulso Control', msg); return; }
       // Falhou (rede, token): libera nova tentativa em 15 s em vez de travar em 00:00.
       setTimeout(() => { if (advancing.current === pomodoro.id) advancing.current = null; }, 15_000);
     });

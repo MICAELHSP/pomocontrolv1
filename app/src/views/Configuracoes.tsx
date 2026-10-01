@@ -152,12 +152,12 @@ function MiniPanel() {
   return (
     <section className="panel stack" style={{ gap: 14 }}>
       <div><h3 className="cfgh">Mini-janela</h3>
-        <p className="note">Uma janelinha sempre por cima das outras, com o pomodoro, a tarefa atual, pausar e trocar de tarefa. Aparece quando você minimiza o Pauta. Arraste para onde quiser (por exemplo, o canto da segunda tela); ela lembra a posição.</p></div>
+        <p className="note">Uma janelinha sempre por cima das outras, com o pomodoro, a tarefa atual, pausar e trocar de tarefa. Aparece quando você minimiza o Pulso Control. Arraste para onde quiser (por exemplo, o canto da segunda tela); ela lembra a posição.</p></div>
       {!bridge ? <p className="note">A mini-janela funciona só no app instalado, não no navegador.</p> : st && <>
-        <label className="toggle"><input type="checkbox" checked={st.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Mostrar ao minimizar o Pauta</label>
-        <label className="toggle"><input type="checkbox" checked={st.pinned} onChange={(e) => set({ pinned: e.target.checked })} />Manter aberta mesmo com o Pauta aberto</label>
+        <label className="toggle"><input type="checkbox" checked={st.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Mostrar ao minimizar o Pulso Control</label>
+        <label className="toggle"><input type="checkbox" checked={st.pinned} onChange={(e) => set({ pinned: e.target.checked })} />Manter aberta mesmo com o Pulso Control aberto</label>
         <div className="ai-row"><button className="btn" onClick={() => bridge.show()}>Mostrar agora</button></div>
-        <p className="note">Na própria mini-janela: o alfinete fixa, a seta abre o Pauta e o X fecha até a próxima vez que você minimizar.</p>
+        <p className="note">Na própria mini-janela: o alfinete fixa, a seta abre o Pulso Control e o X fecha até a próxima vez que você minimizar.</p>
       </>}
     </section>
   );
