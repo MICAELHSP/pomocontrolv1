@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, hm, isoDate, parseDate } from './format';
+import { must, sb } from './supabase';
 import type { Meeting } from './types';
 
 export interface OutlookEvent {
@@ -71,6 +72,61 @@ export function toDayMeetings(events: OutlookEvent[]): Map<string, Meeting[]> {
   return out;
 }
 
+/* ------------------- cópia no banco (demandas_app.calendar_events) ------------------- */
+// Com o Outlook conectado, cada leitura grava as reuniões do intervalo no Supabase (autorizado
+// pelo usuário em 01/10/2026), para o cálculo de ocupação no banco (daily_occupancy) e para ver o
+// histórico mesmo sem o Outlook conectado.
+
+interface EventRow {
+  external_id: string; subject: string | null; starts_at: string; ends_at: string;
+  is_all_day: boolean; show_as: string | null; location: string | null; web_link: string | null;
+}
+
+const toRow = (e: OutlookEvent): EventRow => ({
+  external_id: e.id, subject: e.title, starts_at: e.start, ends_at: e.end,
+  is_all_day: e.allDay, show_as: e.showAs, location: e.location ?? null, web_link: e.webLink,
+});
+
+export const fromRow = (r: EventRow): OutlookEvent => ({
+  id: r.external_id, title: r.subject || '(sem assunto)', start: r.starts_at, end: r.ends_at,
+  allDay: r.is_all_day, showAs: r.show_as || 'busy', webLink: r.web_link, location: r.location,
+});
+
+/** Ids do banco que sumiram do Outlook no intervalo (cancelados, recusados ou excluídos). */
+export function staleIds(existing: { id: string; external_id: string }[], events: OutlookEvent[]): string[] {
+  const keep = new Set(events.map((e) => e.id));
+  return existing.filter((r) => !keep.has(r.external_id)).map((r) => r.id);
+}
+
+/** Grava os eventos do intervalo [from, to) e apaga do banco os que sumiram do Outlook. */
+export async function syncEvents(events: OutlookEvent[], from: Date, to: Date) {
+  const now = new Date().toISOString();
+  const rows = events.map((e) => ({ ...toRow(e), source: 'outlook', synced_at: now }));
+  for (let i = 0; i < rows.length; i += 200) {
+    must(await sb().from('calendar_events').upsert(rows.slice(i, i + 200), { onConflict: 'owner_id,source,external_id' }));
+  }
+  const existing = must(await sb().from('calendar_events').select('id, external_id')
+    .eq('source', 'outlook').gte('starts_at', from.toISOString()).lt('starts_at', to.toISOString())) as { id: string; external_id: string }[];
+  const stale = staleIds(existing, events);
+  for (let i = 0; i < stale.length; i += 100) {
+    must(await sb().from('calendar_events').delete().in('id', stale.slice(i, i + 100)));
+  }
+}
+
+async function eventsFromDb(from: Date, to: Date): Promise<OutlookEvent[]> {
+  const rows = must(await sb().from('calendar_events').select('external_id, subject, starts_at, ends_at, is_all_day, show_as, location, web_link')
+    .lt('starts_at', to.toISOString()).gt('ends_at', from.toISOString()).order('starts_at')) as EventRow[];
+  return rows.map(fromRow);
+}
+
+/** Outlook conectado: lê do Graph e grava a cópia. Senão: lê a última cópia do banco. */
+async function loadEvents(b: OutlookBridge | undefined, connected: boolean, from: Date, to: Date): Promise<OutlookEvent[]> {
+  if (!b || !connected) return eventsFromDb(from, to);
+  const events = await b.events(from.toISOString(), to.toISOString());
+  try { await syncEvents(events, from, to); } catch (e) { console.warn('Não foi possível gravar as reuniões no banco:', e); }
+  return events;
+}
+
 const EMPTY: Meeting[] = [];
 
 export interface Calendar {
@@ -84,52 +140,33 @@ export interface Calendar {
   meetingsOn: (date: string | null | undefined) => Meeting[];
 }
 
-export function useCalendar(): Calendar {
+/** Reuniões de um intervalo (padrão: de ontem a 60 dias), por dia local. */
+export function useMeetingsBetween(from?: Date, to?: Date): Calendar {
   const b = outlook();
   const qc = useQueryClient();
   const statusQ = useQuery({ queryKey: calKeys.status, queryFn: () => b!.status(), enabled: !!b, staleTime: Infinity });
   const connected = !!statusQ.data?.connected;
+  const ready = !b || statusQ.isFetched; // fora do Electron lê direto a cópia do banco
   const today = isoDate(new Date());
-  const eventsQ = useQuery({
-    queryKey: [...calKeys.events, today],
-    enabled: connected,
+  const f = from ?? addDays(parseDate(today), -WINDOW_BEFORE), t = to ?? addDays(parseDate(today), WINDOW_AFTER);
+  const q = useQuery({
+    queryKey: [...calKeys.events, connected, f.toISOString(), t.toISOString()],
+    enabled: ready,
     staleTime: 2 * 60_000,
-    refetchInterval: 5 * 60_000,
+    refetchInterval: connected ? 5 * 60_000 : false,
     queryFn: async () => {
-      const from = addDays(parseDate(today), -WINDOW_BEFORE), to = addDays(parseDate(today), WINDOW_AFTER);
       try {
-        return await b!.events(from.toISOString(), to.toISOString());
+        return await loadEvents(b, connected, f, t);
       } catch (e) {
-        qc.invalidateQueries({ queryKey: calKeys.status }); // o login pode ter expirado
+        if (connected) qc.invalidateQueries({ queryKey: calKeys.status }); // o login pode ter expirado
         throw e;
       }
     },
   });
-  const byDay = useMemo(() => toDayMeetings(eventsQ.data ?? []), [eventsQ.data]);
-  const meetingsOn = useCallback((date: string | null | undefined) => (date ? byDay.get(date) ?? EMPTY : EMPTY), [byDay]);
-  return {
-    available: !!b,
-    connected,
-    status: statusQ.data,
-    loading: connected && eventsQ.isLoading,
-    error: eventsQ.error,
-    updatedAt: eventsQ.dataUpdatedAt,
-    meetingsOn,
-  };
-}
-
-/** Reuniões de um intervalo qualquer (ex.: a semana ou o mês do Calendário), por dia local. */
-export function useMeetingsBetween(from: Date, to: Date) {
-  const b = outlook();
-  const { data: st } = useQuery({ queryKey: calKeys.status, queryFn: () => b!.status(), enabled: !!b, staleTime: Infinity });
-  const q = useQuery({
-    queryKey: [...calKeys.events, 'range', from.toISOString(), to.toISOString()],
-    enabled: !!st?.connected,
-    staleTime: 2 * 60_000,
-    refetchInterval: 5 * 60_000,
-    queryFn: () => b!.events(from.toISOString(), to.toISOString()),
-  });
   const byDay = useMemo(() => toDayMeetings(q.data ?? []), [q.data]);
   const meetingsOn = useCallback((date: string | null | undefined) => (date ? byDay.get(date) ?? EMPTY : EMPTY), [byDay]);
-  return { meetingsOn, loading: !!st?.connected && q.isLoading, error: q.error, connected: !!st?.connected, available: !!b };
+  return { available: !!b, connected, status: statusQ.data, loading: q.isLoading, error: q.error, updatedAt: q.dataUpdatedAt, meetingsOn };
 }
+
+/** Janela padrão: conflitos de prazo, agenda de Hoje e rotinas. */
+export const useCalendar = (): Calendar => useMeetingsBetween();
