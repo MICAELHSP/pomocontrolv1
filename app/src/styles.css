@@ -452,3 +452,8 @@ html.is-mini,html.is-mini body{background:var(--surface);overflow:hidden;height:
 .mini-swap{position:relative;flex:none}
 .mini-select{position:absolute;inset:0;width:22px;height:22px;opacity:0;pointer-events:none;border:0}
 html.is-mini .toast{left:6px;right:6px;bottom:4px;transform:none;max-width:none;font-size:11px;padding:4px 8px}
+
+/* Calendário: itens de demanda clicáveis abrem o detalhe ao lado */
+.wb.link,.wdue.link,.strip i.link,.tbars .r.link,.sect .item.link{cursor:pointer}
+.wb.link:hover{filter:brightness(1.1);outline:2px solid var(--fg);outline-offset:-1px}
+.tbars .r.link:hover span:first-child,.sect .item.link:hover span:first-child{text-decoration:underline}

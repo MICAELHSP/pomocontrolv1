@@ -12,6 +12,7 @@ import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 import type { Meeting } from '../lib/types';
 import { useTimerCtx } from '../timer/TimerContext';
+import { useUI } from '../ui';
 import { CalendarioModal } from './CalendarioSettings';
 import { JornadaSettings } from './JornadaSettings';
 
@@ -39,7 +40,10 @@ interface Day { k: string; d: Date; segs: Seg[]; meetings: Meeting[]; st: DaySta
 
 export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
   const t = useTimerCtx();
+  const ui = useUI();
   const j = useJornada();
+  // Clique numa demanda do calendário abre o detalhe dela no painel ao lado.
+  const onOpen = (key: string) => { const id = key.startsWith('d:') ? key.slice(2) : ''; if (m.byId.has(id)) ui.open(id); };
   const todayK = isoDate(new Date(t.now));
   const [anchor, setAnchor] = useState(() => new Date());
   const [sel, setSel] = useState<string>(todayK);
@@ -93,9 +97,9 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
         {mode === 'mes'
           ? <MonthGrid days={monthDays} month={monthFirst} sel={sel} onSel={setSel} onShift={shift} colorOfGroup={colorOfGroup} m={m} jMin={jornadaMinutes(j)} jDays={j.days} />
           : <WeekMap days={[0, 1, 2, 3, 4].map((i) => day(addDays(week0, i)))} sel={sel} onSel={setSel} onShift={shift} now={t.now}
-              colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} />}
+              colorOfKey={colorOfKey} nameOfKey={nameOfKey} dues={dues} onOpen={onOpen} />}
       </div>
-      <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onJornada={() => setModal('jornada')} />
+      <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onOpen={onOpen} onJornada={() => setModal('jornada')} />
       {modal === 'outlook' && <CalendarioModal onClose={() => setModal('')} />}
       {modal === 'jornada' && <Modal label="Jornada de trabalho" onClose={() => setModal('')}><JornadaSettings /></Modal>}
     </div>
@@ -185,9 +189,9 @@ function MonthGrid({ days, month, sel, onSel, onShift, colorOfGroup, m, jMin, jD
 const PX = 50, START = 8 * 60, END = 18 * 60;
 const wy = (min: number) => ((Math.min(Math.max(min, START), END) - START) / 60) * PX;
 
-function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues }: {
+function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues, onOpen }: {
   days: Day[]; sel: string; onSel: (k: string) => void; onShift: (n: number) => void; now: number;
-  colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands'];
+  colorOfKey: (k: string) => string; nameOfKey: (k: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void;
 }) {
   const nowD = new Date(now), nowMin = nowD.getHours() * 60 + nowD.getMinutes();
   const hours = [];
@@ -215,13 +219,16 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues }
               })}
               {x.segs.map((s, i) => {
                 if (s.end <= START || s.start >= END) return null;
-                return <div key={i} className="wb" style={{ top: wy(s.start), height: Math.max(3, wy(s.end) - wy(s.start) - 1), background: colorOfKey(s.key) }}
-                  title={`${nameOfKey(s.key)} ${hmm(s.start)}–${hmm(s.end)}`}><span>{nameOfKey(s.key)}</span></div>;
+                const dem = s.key.startsWith('d:');
+                return <div key={i} className={`wb ${dem ? 'link' : ''}`} style={{ top: wy(s.start), height: Math.max(3, wy(s.end) - wy(s.start) - 1), background: colorOfKey(s.key) }}
+                  title={`${nameOfKey(s.key)} ${hmm(s.start)}–${hmm(s.end)}${dem ? ' · clique para abrir' : ''}`}
+                  onClick={dem ? (e) => { e.stopPropagation(); onSel(x.k); onOpen(s.key); } : undefined}><span>{nameOfKey(s.key)}</span></div>;
               })}
               {dues(x.k).map((d) => {
                 const tm = toMinutes(d.due_time)!;
                 if (tm < START || tm > END) return null;
-                return <div key={d.id} className="wdue" style={{ top: wy(tm) }} title={`Entrega: ${d.title}`}><span>{shortTime(d.due_time)} entrega</span></div>;
+                return <div key={d.id} className="wdue link" style={{ top: wy(tm) }} title={`Entrega: ${d.title} · clique para abrir`}
+                  onClick={(e) => { e.stopPropagation(); onSel(x.k); onOpen('d:' + d.id); }}><span>{shortTime(d.due_time)} entrega</span></div>;
               })}
               {x.today && nowMin >= START && nowMin <= END && <div className="now" style={{ top: wy(nowMin) }} />}
             </div>
@@ -235,9 +242,9 @@ function WeekMap({ days, sel, onSel, onShift, now, colorOfKey, nameOfKey, dues }
 
 const hmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
-function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onJornada }: {
+function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onOpen, onJornada }: {
   day: Day; j: Jornada; colorOfKey: (k: string) => string; nameOfKey: (k: string) => string;
-  colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onJornada: () => void;
+  colorOfGroup: (g: string) => string; dues: (k: string) => Model['demands']; onOpen: (key: string) => void; onJornada: () => void;
 }) {
   const label = `${cap(WDL[x.d.getDay()])}, ${ddmm(x.d)}`;
   const foot = <p className="note">Reunião que coincide com tempo registrado conta uma vez só. Jornada: {j.start}–{j.end}, {j.lunch} min de almoço. <button className="linkbtn" onClick={onJornada}>Alterar jornada</button></p>;
@@ -252,7 +259,7 @@ function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onJor
       <div className="panel dayrep stack" style={{ gap: 12 }}>
         <h3>{label} <span className="chip">Planejado</span></h3>
         <p className="note">Reuniões marcadas: {x.meetings.length} ({hmin(x.st.meet)}).{x.st.J ? ` Sobram ${hmin(Math.max(0, x.st.J - x.st.meet))} da jornada para demandas.` : ''}</p>
-        {ds.length > 0 && <div className="sect"><h4>Entregas</h4>{ds.map((d) => <div className="item" key={d.id}><span>{d.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{shortTime(d.due_time)}</span></div>)}</div>}
+        {ds.length > 0 && <div className="sect"><h4>Entregas</h4>{ds.map((d) => <div className="item link" key={d.id} onClick={() => onOpen('d:' + d.id)} title="Abrir demanda"><span>{d.title}</span><span className="mono note" style={{ marginLeft: 'auto' }}>{shortTime(d.due_time)}</span></div>)}</div>}
         {meetList}
         {foot}
       </div>
@@ -282,14 +289,14 @@ function DayReport({ day: x, j, colorOfKey, nameOfKey, colorOfGroup, dues, onJor
       <div className="sect"><h4>Mapa do dia <span className="n">08h a 18h</span></h4>
         <div className="strip">
           {x.meetings.map((mt) => { const a = toMinutes(mt.start)!, b = toMinutes(mt.end)!; return b > START && a < END ? <i key={'m' + (mt.id ?? mt.title) + mt.start} className="sm" style={pos(a, b)} /> : null; })}
-          {x.segs.map((s, i) => (s.end > START && s.start < END ? <i key={i} style={{ ...pos(s.start, s.end), background: colorOfKey(s.key) }} title={nameOfKey(s.key)} /> : null))}
+          {x.segs.map((s, i) => (s.end > START && s.start < END ? <i key={i} className={s.key.startsWith('d:') ? 'link' : undefined} style={{ ...pos(s.start, s.end), background: colorOfKey(s.key) }} title={nameOfKey(s.key)} onClick={() => onOpen(s.key)} /> : null))}
         </div>
         <div className="stripax mono"><span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span></div>
       </div>
       <div className="sect"><h4>Por demanda</h4>
         <div className="tbars">
           {rows.map(([k, v]) => (
-            <div className="r" key={k}>
+            <div className={`r ${k.startsWith('d:') ? 'link' : ''}`} key={k} onClick={() => onOpen(k)} title={k.startsWith('d:') ? 'Abrir demanda' : undefined}>
               <span><span className="dot" style={{ display: 'inline-block', marginRight: 6, background: colorOfKey(k) }} />{nameOfKey(k)}</span>
               <span className="mono" style={{ textAlign: 'right' }}>{hmin(v)}</span>
               <div className="bar"><i style={{ width: `${(v / rows[0][1]) * 100}%`, background: colorOfKey(k) }} /></div>

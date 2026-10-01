@@ -73,6 +73,8 @@ export function Detail({ m }: { m: Model }) {
             onBlur={() => { const v = title.trim(); if (v && v !== d.title) patch({ title: v }); else setTitle(d.title); }}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
         </h3>
+        {ui.view !== 'demandas' && <button className="iconbtn" onClick={() => { const id = d.id; ui.go('demandas', d.group_id); ui.open(id); }}
+          aria-label="Ir para a demanda na lista" title="Ir para a demanda na lista"><I.expand /></button>}
         <button className="iconbtn" onClick={() => ui.open(null)} aria-label="Fechar detalhe"><I.x /></button>
       </header>
       <div className="dbody">
