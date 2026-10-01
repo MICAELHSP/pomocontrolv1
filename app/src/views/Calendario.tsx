@@ -3,13 +3,14 @@
 import { useMemo, useRef, useState } from 'react';
 import { I } from '../components/Icons';
 import { Modal } from '../components/Modal';
-import { useEntriesBetween } from '../data/api';
-import { isOpen, type Model } from '../data/model';
+import { api, qk, useEntriesBetween, useInvalidate } from '../data/api';
+import { isOpen, MEETING_TYPE, type Model } from '../data/model';
 import { addDays, ddmm, isoDate, MON, parseDate, shortTime, toMinutes, WD, WDL } from '../lib/format';
 import { useJornada } from '../data/jornada';
 import { dayStats, entriesByDay, holidayOf, hmin, jornadaMinutes, occLabel, type DayStats, type Jornada, type Seg } from '../lib/occupancy';
 import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
+import { useToast } from '../components/Toast';
 import type { Meeting } from '../lib/types';
 import { useFitHeight } from '../lib/useFit';
 import { useIcsDrop } from '../lib/icsDrop';
@@ -106,7 +107,7 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
       </div>
       <DayReport day={selDay} j={j} colorOfKey={colorOfKey} nameOfKey={nameOfKey} colorOfGroup={colorOfGroup} dues={dues} onOpen={onOpen} onMeeting={setMeetSel} isMeetingKey={m.isMeetingKey} onJornada={() => setModal('jornada')} />
       {modal === 'outlook' && <CalendarioModal onClose={() => setModal('')} />}
-      {meetSel && <MeetingModal mt={meetSel} onClose={() => setMeetSel(null)} />}
+      {meetSel && <MeetingModal mt={meetSel} m={m} onClose={() => setMeetSel(null)} />}
       {modal === 'jornada' && <Modal label="Jornada de trabalho" onClose={() => setModal('')}><JornadaSettings /></Modal>}
     </div>
   );
@@ -361,9 +362,41 @@ function MeetTip({ x, m, nameOfKey, right }: { x: Day; m: Model; nameOfKey: (k: 
   );
 }
 
-/** Detalhe de uma reunião da agenda (Outlook ou .ics). */
-function MeetingModal({ mt, onClose }: { mt: Meeting; onClose: () => void }) {
+/** Demanda-reunião já criada a partir deste evento (mesmo assunto, dia e hora). */
+const demandOfMeeting = (m: Model, mt: Meeting) => m.demands.find((x) => m.isMeeting(x) && x.title === mt.title
+  && x.due_date === (mt.date ?? null) && (x.due_time ?? '').slice(0, 5) === mt.start);
+
+/** Detalhe de uma reunião da agenda (Outlook ou .ics), com a opção de virar demanda-reunião. */
+export function MeetingModal({ mt, m, onClose }: { mt: Meeting; m: Model; onClose: () => void }) {
+  const ui = useUI();
+  const toast = useToast();
+  const invalidate = useInvalidate();
+  const [busy, setBusy] = useState(false);
   const d = mt.date ? parseDate(mt.date) : null;
+  const linked = demandOfMeeting(m, mt);
+
+  // Cria a demanda com assunto, dia, horário e duração do evento. O tempo dela só conta se você
+  // cronometrar, e o que coincidir com a reunião da agenda conta uma vez só.
+  async function convert() {
+    if (linked) { ui.open(linked.id); onClose(); return; }
+    setBusy(true);
+    try {
+      const typeId = m.meetingTypeId ?? (await api.addType(MEETING_TYPE)).id;
+      const [a, b] = [toMinutes(mt.start)!, toMinutes(mt.end)!];
+      const start = mt.date ? new Date(`${mt.date}T${mt.start}:00`) : null;
+      const dm = await api.addDemand({
+        title: mt.title, type_id: typeId, due_date: mt.date ?? null, due_time: mt.start,
+        planned_start: start ? start.toISOString() : null, estimated_minutes: Math.max(1, b - a),
+        description: mt.location ? `Local: ${mt.location}` : null,
+      });
+      await invalidate(qk.types, qk.demands);
+      toast('Reunião virou demanda: anote o que houve, a checklist e quem participou.');
+      ui.open(dm.id);
+      onClose();
+    } catch (e) { toast(errMsg(e)); }
+    setBusy(false);
+  }
+
   return (
     <Modal label="Reunião" onClose={onClose}>
       <div className="stack" style={{ gap: 10 }}>
@@ -371,10 +404,11 @@ function MeetingModal({ mt, onClose }: { mt: Meeting; onClose: () => void }) {
         <p className="note" style={{ margin: 0 }}>{d ? `${cap(WDL[d.getDay()])}, ${ddmm(d)} · ` : ''}<span className="mono">{mt.start}–{mt.end}</span></p>
         {mt.location && <p style={{ margin: 0 }}><b>Local:</b> {/^https?:\/\//.test(mt.location) ? <a className="link" href={mt.location} target="_blank" rel="noreferrer">{mt.location}</a> : mt.location}</p>}
         <div className="ai-row">
-          {mt.webLink && <a className="btn primary" href={mt.webLink} target="_blank" rel="noreferrer">Abrir no Outlook</a>}
+          <button className="btn primary" disabled={busy} onClick={convert}>{linked ? 'Abrir a demanda-reunião' : busy ? 'Criando…' : 'Virar demanda-reunião'}</button>
+          {mt.webLink && <a className="btn" href={mt.webLink} target="_blank" rel="noreferrer">Abrir no Outlook</a>}
           <button className="btn" onClick={onClose}>Fechar</button>
         </div>
-        {!mt.webLink && <p className="fine" style={{ margin: 0 }}>Reunião importada de arquivo .ics: não há link para abrir no Outlook.</p>}
+        <p className="fine" style={{ margin: 0 }}>{linked ? 'Esta reunião já tem uma demanda para anotações e checklist.' : 'A demanda-reunião guarda anotações, checklist e com quem foi. A reunião continua na agenda.'}</p>
       </div>
     </Modal>
   );

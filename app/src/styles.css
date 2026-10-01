@@ -166,7 +166,7 @@ button{cursor:pointer}
 .tl .hr span{position:absolute;top:-8px;left:0;width:38px;text-align:right;background:var(--surface)}
 .tl .ev{position:absolute;left:8px;right:8px;border-radius:6px;padding:4px 8px;font-size:12px;overflow:hidden;cursor:pointer;border:1px solid transparent}
 .tl .ev b{display:block;font-weight:600;font-size:12px}
-.tl .ev.meet{background:repeating-linear-gradient(135deg,var(--meet-soft) 0 8px,var(--surface) 8px 10px);border-color:var(--meet);color:var(--fg);cursor:default}
+.tl .ev.meet{background:repeating-linear-gradient(135deg,var(--meet-soft) 0 8px,var(--surface) 8px 10px);border-color:var(--meet);color:var(--fg);cursor:pointer}
 .tl .ev.meet b{color:var(--meet)}
 .tl .ev.blk{background:var(--accent-soft);border-color:var(--accent)}
 .tl .ev.work{background:var(--surface-2,var(--bg));border-color:var(--line,transparent);border-left:4px solid var(--muted);opacity:.95}

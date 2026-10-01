@@ -10,6 +10,8 @@ import { useIcsDrop } from '../lib/icsDrop';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 import { CalendarioModal, CalendarSource } from './CalendarioSettings';
+import { MeetingModal } from './Calendario';
+import type { Meeting } from '../lib/types';
 
 export function HojeToolbar({ onAI }: { onAI?: () => void }) {
   const t = useTimerCtx();
@@ -28,6 +30,7 @@ export function Hoje({ m }: { m: Model }) {
   const ui = useUI();
   const [calOpen, setCalOpen] = useState(false);
   const ics = useIcsDrop();
+  const [meetSel, setMeetSel] = useState<Meeting | null>(null);
   const START = 8 * 60, END = 18 * 60;
   // A agenda ocupa a altura que sobra na tela (sem rolagem); mínimo de 28 px por hora.
   const tlRef = useRef<HTMLDivElement>(null);
@@ -42,7 +45,8 @@ export function Hoje({ m }: { m: Model }) {
   const today = open.filter((d) => d.due_date && dayDiff(d.due_date) === 0);
   const confl = open.filter((d) => conflictOf(d, m));
   const meetings = m.meetingsOn(isoDate(nowD));
-  const blocks = open.filter((d) => d.planned_start && new Date(d.planned_start).toDateString() === nowD.toDateString());
+  // Demanda-reunião criada de um evento já aparece como a reunião da agenda; não repete como bloco de foco.
+  const blocks = open.filter((d) => d.planned_start && !m.isMeeting(d) && new Date(d.planned_start).toDateString() === nowD.toDateString());
 
   const since = new Date(nowD); since.setHours(0, 0, 0, 0);
   const byAct = [...secondsByActivity(t.entries, since, t.now)].sort((a, b) => b[1] - a[1]);
@@ -81,16 +85,17 @@ export function Hoje({ m }: { m: Model }) {
             {worked.map((w) => {
               const h = y(w.end) - y(w.start);
               const d = w.key.startsWith('d:') ? m.byId.get(w.key.slice(2)) : undefined;
+              const col = m.isMeetingKey(w.key) ? 'var(--meet)' : d ? m.colorOf(d) : 'var(--muted)';
               const label = `${nameOf(w.key)} · ${hm(w.start)}–${hm(w.end)} (${dur((w.end - w.start) * 60)})`;
               return (
                 <div key={w.key + w.start} className="ev work" title={`Trabalhado: ${label}`} onClick={() => d && ui.open(d.id)}
-                  style={{ top: y(w.start), height: Math.max(4, h - 2), borderLeftColor: d ? m.colorOf(d) : 'var(--muted)', background: `color-mix(in srgb, ${d ? m.colorOf(d) : 'var(--muted)'} 22%, var(--surface))`, padding: h < 20 ? '0 8px' : undefined }}>
+                  style={{ top: y(w.start), height: Math.max(4, h - 2), borderLeftColor: col, background: `color-mix(in srgb, ${col} 22%, var(--surface))`, padding: h < 20 ? '0 8px' : undefined }}>
                   {h >= 20 && <><b>{nameOf(w.key)}</b><span className="mono">{hm(w.start)}–{hm(w.end)}</span></>}
                 </div>
               );
             })}
             {meetings.map((mt) => (
-              <div key={(mt.id ?? mt.title) + mt.start} className="ev meet" title={mt.title} style={{ top: y(toMinutes(mt.start)!), height: y(toMinutes(mt.end)!) - y(toMinutes(mt.start)!) - 2 }}>
+              <div key={(mt.id ?? mt.title) + mt.start} className="ev meet" title={`${mt.title} · clique para ver`} onClick={() => setMeetSel(mt)} style={{ top: y(toMinutes(mt.start)!), height: y(toMinutes(mt.end)!) - y(toMinutes(mt.start)!) - 2 }}>
                 <b>{mt.title}</b><span className="mono">{mt.start}–{mt.end}</span> · Outlook
               </div>
             ))}
@@ -136,6 +141,7 @@ export function Hoje({ m }: { m: Model }) {
         </div>
       </div>
       {calOpen && <CalendarioModal onClose={() => setCalOpen(false)} />}
+      {meetSel && <MeetingModal mt={meetSel} m={m} onClose={() => setMeetSel(null)} />}
     </>
   );
 }
