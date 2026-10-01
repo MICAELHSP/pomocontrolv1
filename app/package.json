@@ -61,6 +61,7 @@
       "target": "AppImage",
       "icon": "build/icon.png"
     },
+    "artifactName": "Pauta-Setup-${version}.${ext}",
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -68,6 +69,12 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Pauta"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "MICAELHSP",
+      "repo": "pomocontrolv1",
+      "releaseType": "release"
     }
   },
   "author": "MICAEL",

@@ -5,12 +5,12 @@ Telas seguem `design/prototipo.html`: Hoje, Calendário, Demandas (com detalhe),
 
 ## Instalar (Windows)
 
-1. Em [Releases](https://github.com/MICAELHSP/pomocontrolv1/releases), baixe `Pauta Setup x.y.z.exe` e execute (passo a passo em `../docs/INSTALAR.md`). O Windows pode avisar que o editor é desconhecido (o instalador não é assinado): clique em **Mais informações > Executar assim mesmo**.
+1. Em [Releases](https://github.com/MICAELHSP/pomocontrolv1/releases), baixe `Pauta-Setup-x.y.z.exe` e execute (passo a passo em `../docs/INSTALAR.md`). O Windows pode avisar que o editor é desconhecido (o instalador não é assinado): clique em **Mais informações > Executar assim mesmo**.
 2. Na primeira abertura, informe a **URL do projeto** e a **chave publicável** do Supabase (Supabase > Project Settings > API; ver `../backend/README.md`). Ficam guardadas só neste computador.
 3. Crie a conta (e-mail e senha) ou entre.
 4. Para a IA: **Configurações > Inteligência artificial**, cole a chave do Gemini (https://aistudio.google.com/apikey) e clique em "Salvar e testar". A função `capturar-demanda` precisa estar publicada no Supabase (ver `../ia/`).
 
-Nova versão do instalador: suba `version` no package.json e envie uma tag (`git tag v1.0.1 && git push origin v1.0.1`); o workflow `instalador` gera o .exe e cria a Release.
+Nova versão do instalador: suba `version` no package.json e envie uma tag (`git tag v1.0.1 && git push origin v1.0.1`); o workflow `release` gera o .exe e cria a Release (segredos opcionais `VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY` deixam o endereço embutido).
 
 ## Rodar em desenvolvimento
 
