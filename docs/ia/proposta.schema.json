@@ -1,0 +1,52 @@
+{
+  "$comment": "Formato da proposta que o Claude devolve (structured outputs). Nomes de campo iguais às colunas de demandas_app. Sem minLength/maximum etc. porque structured outputs não aceita; os limites são checados na Edge Function (ver validar() em index.ts).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "demand", "subtasks", "questions"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Uma ou duas frases dizendo qual atividade o usuário terá, como a IA entendeu."
+    },
+    "demand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "description", "type_name", "group_path", "priority", "due_date", "due_time", "estimated_minutes", "external_ref", "checklist"],
+      "properties": {
+        "title": { "type": "string", "description": "Título curto no infinitivo, até 80 caracteres." },
+        "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "type_name": { "anyOf": [{ "type": "string" }, { "type": "null" }], "description": "Nome de um tipo existente, escrito igual à lista, ou um nome novo curto. null se não der para saber." },
+        "group_path": { "anyOf": [{ "type": "string" }, { "type": "null" }], "description": "Caminho de um grupo existente (ex.: 'Trabalho / Cliente X'), igual à lista, ou um nome novo. null se não der para saber." },
+        "priority": { "type": "integer", "enum": [0, 1, 2, 3, 4], "description": "0 baixa, 2 normal, 4 urgente." },
+        "due_date": { "anyOf": [{ "type": "string", "format": "date" }, { "type": "null" }] },
+        "due_time": { "anyOf": [{ "type": "string", "description": "HH:MM, 24h" }, { "type": "null" }] },
+        "estimated_minutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }], "description": "Tempo da demanda sem contar as subtarefas." },
+        "external_ref": { "anyOf": [{ "type": "string" }, { "type": "null" }], "description": "Nº de processo, protocolo, ticket ou link citado na origem." },
+        "checklist": { "type": "array", "items": { "type": "string" }, "description": "Passos rápidos feitos de uma vez, na ordem." }
+      }
+    },
+    "subtasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "title", "description", "due_date", "due_time", "estimated_minutes", "checklist", "depends_on"],
+        "properties": {
+          "ref": { "type": "string", "description": "Identificador local: s1, s2, s3..." },
+          "title": { "type": "string" },
+          "description": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "due_date": { "anyOf": [{ "type": "string", "format": "date" }, { "type": "null" }] },
+          "due_time": { "anyOf": [{ "type": "string", "description": "HH:MM, 24h" }, { "type": "null" }] },
+          "estimated_minutes": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+          "checklist": { "type": "array", "items": { "type": "string" } },
+          "depends_on": { "type": "array", "items": { "type": "string" }, "description": "refs das subtarefas que precisam estar concluídas antes desta." }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Até 3 dúvidas ou suposições que o usuário deve confirmar na revisão."
+    }
+  }
+}
