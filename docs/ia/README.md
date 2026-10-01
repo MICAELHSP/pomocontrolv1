@@ -61,7 +61,7 @@ Publicar a função: `supabase functions deploy capturar-demanda --project-ref x
 ### Tela Configurações > Inteligência artificial (para o design)
 
 - Campo **Chave do Gemini** (tipo senha, com olho para mostrar o que está sendo digitado) e link "Onde pego a chave?" abrindo aistudio.google.com.
-- Campo **Modelo**, opcional, com o padrão `gemini-3.8-flash` já sugerido.
+- Campo **Modelo** como lista de seleção, preenchida com `{ modo: "modelos" }` depois que a chave é salva (só modelos Gemini que geram texto, mais novos primeiro). Antes de haver chave, a lista fica desabilitada com o padrão.
 - Botão **Salvar e testar**: chama `set_ai_key` e depois a função com `{ modo: "testar" }`. Mostra "Chave funcionando (gemini-3.8-flash)" em verde ou a mensagem de erro devolvida.
 - Com chave salva, o campo aparece vazio e acima dele o estado: "Chave salva: …a1B2, atualizada em 30/09". Botões **Trocar chave** e **Remover chave**.
 - Aviso fixo em texto pequeno: "No plano gratuito, o Google pode usar o que você envia para melhorar os produtos dele. Não envie documentos sigilosos."
@@ -72,10 +72,9 @@ Publicar a função: `supabase functions deploy capturar-demanda --project-ref x
 | Parâmetro | Valor | Por quê |
 |---|---|---|
 | Endpoint | `POST https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent`, chave no cabeçalho `x-goog-api-key` | Uma chamada REST com `fetch`, sem SDK nem ferramentas |
-| Modelo | o escolhido em Configurações; senão o segredo `GEMINI_MODEL`; senão `gemini-3.8-flash` | Tem nível gratuito, lê imagem e PDF e aceita saída em JSON |
+| Modelo | o escolhido em Configurações (normalizado: "Gemini 2.5 Flash" vira `gemini-2.5-flash`); senão o segredo `GEMINI_MODEL`; senão `gemini-3.8-flash` | Tem nível gratuito, lê imagem e PDF e aceita saída em JSON |
 | Chave | a do usuário (Vault) ou o segredo `GEMINI_API_KEY` | Ver seção 2 |
-| `generationConfig.responseFormat.text` | `mimeType: application/json` e `schema` = `proposta.schema.json` | A resposta vem sempre no formato da proposta |
-| `generationConfig.thinkingConfig.thinkingLevel` | `low` | Tarefa de extração e organização; subir se as propostas vierem rasas |
+| `generationConfig` | `responseMimeType: application/json` e `responseJsonSchema` = `proposta.schema.json` | A resposta vem no formato da proposta. Se o modelo recusar o schema, a função repete o pedido só com JSON e o schema no texto |
 | `maxOutputTokens` | 16000 | Folga; uma proposta usa bem menos |
 | `systemInstruction` | `prompt-sistema.md` | Fixo; data, tipos e grupos vão na mensagem |
 | `contents` | contexto (hoje, dia da semana, tipos, grupos) → imagens/PDF em `inlineData` → texto dentro de `<origem>` | Imagens antes do texto; `<origem>` separa o material recebido das instruções |
@@ -151,6 +150,8 @@ Regra que o prompt usa para dividir os passos: vira **subtarefa** o passo com ma
 { modo: "refinar", proposta_atual: Proposta, instrucao: "junte as duas primeiras subtarefas e tire o prazo", texto?: string }
 // testar a chave salva (consulta o modelo no Google, não gera nada)
 { modo: "testar" }  // resposta: { ok: true, modelo, origem: "app" | "servidor" } ou { ok: false, erro }
+// modelos que a chave pode usar, para a lista de seleção em Configurações
+{ modo: "modelos" } // resposta: { ok: true, modelos: [{ id: "gemini-2.5-flash", nome: "Gemini 2.5 Flash" }], atual } ou { ok: false, erro }
 ```
 
 Resposta: `{ proposta, uso: { modelo, input_tokens, output_tokens } }` ou `{ erro }` com status 4xx/5xx.

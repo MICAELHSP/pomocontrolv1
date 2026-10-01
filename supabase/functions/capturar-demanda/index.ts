@@ -29,7 +29,7 @@ const CORS = {
 
 type Anexo = { media_type: string; data: string }; // data = base64 sem prefixo "data:"
 type Pedido = {
-  modo?: "criar" | "refinar" | "testar"; // testar: só confere se a chave salva funciona
+  modo?: "criar" | "refinar" | "testar" | "modelos"; // testar: confere chave e modelo; modelos: lista os disponíveis
   texto?: string;
   anexos?: Anexo[];
   proposta_atual?: unknown; // modo refinar: proposta já editada pelo usuário
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
   }>();
   if (cfgErr) console.error("get_ai_key", cfgErr.message);
   const chave = cfg?.api_key ?? Deno.env.get("GEMINI_API_KEY");
-  const MODEL = cfg?.model ?? MODELO_PADRAO;
+  const MODEL = normalizarModelo(cfg?.model) ?? MODELO_PADRAO;
   if (!chave) return json({ erro: "Configure a chave do Gemini em Configurações > Inteligência artificial." }, 412);
 
   // 2. Pedido
@@ -121,17 +121,28 @@ Deno.serve(async (req) => {
   }
   const modo = pedido.modo ?? "criar";
 
+  if (modo === "modelos") {
+    // Modelos que esta chave pode usar para gerar texto (para a lista de seleção do app)
+    const r = await fetch(`${GEMINI_BASE}?pageSize=1000`, { headers: { "x-goog-api-key": chave } }).catch(() => null);
+    if (!r?.ok) {
+      if (r) console.error("modelos", r.status, await r.text());
+      return json({ ok: false, erro: r ? await erroDoGoogle(r, MODEL, true) : "Não consegui falar com o Google. Tente de novo." });
+    }
+    const lista: { name: string; displayName?: string; supportedGenerationMethods?: string[] }[] = (await r.json()).models ?? [];
+    const modelos = lista
+      .filter((m) => m.name.startsWith("models/gemini") && m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m) => ({ id: m.name.slice("models/".length), nome: m.displayName ?? m.name.slice("models/".length) }))
+      .sort((a, b) => b.id.localeCompare(a.id, "en", { numeric: true }));
+    return json({ ok: true, modelos, atual: MODEL });
+  }
+
   if (modo === "testar") {
     // Consulta o modelo com a chave: não gera nada nem gasta cota de geração
     const r = await fetch(`${GEMINI_BASE}/${MODEL}`, { headers: { "x-goog-api-key": chave } }).catch(() => null);
     if (r?.ok) return json({ ok: true, modelo: MODEL, origem: cfg ? "app" : "servidor" });
-    if (r) console.error("testar", r.status, await r.text());
-    const erro = !r
-      ? "Não consegui falar com o Google. Tente de novo."
-      : r.status === 404
-      ? `A chave funciona, mas o modelo "${MODEL}" não existe. Escolha outro.`
-      : "O Google recusou a chave. Confira se copiou a chave inteira.";
-    return json({ ok: false, erro }, 200);
+    if (!r) return json({ ok: false, erro: "Não consegui falar com o Google. Tente de novo." });
+    console.error("testar", r.status, await r.clone().text());
+    return json({ ok: false, erro: await erroDoGoogle(r, MODEL, true) });
   }
   const texto = (pedido.texto ?? "").trim();
   const anexos = pedido.anexos ?? [];
@@ -184,22 +195,37 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 5. Chamada ao Gemini com saída estruturada no formato da proposta
-  let http: Response;
-  try {
-    http = await fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
+  // 5. Chamada ao Gemini com saída em JSON no formato da proposta. Se o modelo
+  // recusar o schema, tenta de novo só com JSON e o schema descrito no texto
+  // (validar() abaixo cuida do que vier fora do formato).
+  const chamar = (comSchema: boolean) =>
+    fetch(`${GEMINI_BASE}/${MODEL}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: {
+          parts: [{
+            text: comSchema ? SYSTEM_PROMPT : `${SYSTEM_PROMPT}\n\nResponda só com um JSON neste formato (JSON Schema):\n${JSON.stringify(PROPOSTA_SCHEMA)}`,
+          }],
+        },
         contents: [{ role: "user", parts }],
         generationConfig: {
           maxOutputTokens: 16000,
-          thinkingConfig: { thinkingLevel: "low" },
-          responseFormat: { text: { mimeType: "application/json", schema: PROPOSTA_SCHEMA } },
+          responseMimeType: "application/json",
+          ...(comSchema ? { responseJsonSchema: PROPOSTA_SCHEMA } : {}),
         },
       }),
     });
+  let http: Response;
+  try {
+    http = await chamar(true);
+    if (http.status === 400) {
+      const corpo = await http.clone().text();
+      if (/schema|response_json|responseJson/i.test(corpo)) {
+        console.error("gemini schema recusado, tentando sem", corpo);
+        http = await chamar(false);
+      }
+    }
   } catch (e) {
     console.error("gemini rede", e);
     return json({ erro: "Não consegui falar com o serviço de IA. Tente de novo." }, 502);
@@ -208,11 +234,8 @@ Deno.serve(async (req) => {
     return json({ erro: "Limite gratuito do Gemini atingido. Tente em alguns minutos." }, 429);
   }
   if (!http.ok) {
-    console.error("gemini", http.status, await http.text());
-    const erro = http.status === 400 || http.status === 403
-      ? "O Google recusou a chave ou o pedido. Confira a chave em Configurações > Inteligência artificial."
-      : "O serviço de IA falhou. Tente de novo.";
-    return json({ erro }, 502);
+    console.error("gemini", http.status, await http.clone().text());
+    return json({ erro: await erroDoGoogle(http, MODEL, false) }, 502);
   }
   const resposta: RespostaGemini = await http.json();
 
@@ -245,6 +268,32 @@ Deno.serve(async (req) => {
     },
   });
 });
+
+// "Gemini 2.5 Flash" / "models/gemini-2.5-flash" -> "gemini-2.5-flash"
+function normalizarModelo(m: string | null | undefined): string | null {
+  const id = (m ?? "").trim().toLowerCase().replace(/^models\//, "").replace(/\s+/g, "-");
+  return /^[a-z0-9][a-z0-9.\-]*$/.test(id) ? id : null;
+}
+
+// Mensagem clara a partir do erro do Google: só fala em chave quando é a chave.
+async function erroDoGoogle(r: Response, modelo: string, teste: boolean): Promise<string> {
+  const corpo = await r.text().catch(() => "");
+  if (/API_KEY_INVALID|API key not valid|API_KEY/i.test(corpo) || r.status === 401) {
+    return "O Google recusou a chave. Confira se é uma chave do Google AI Studio (aistudio.google.com) e se foi copiada inteira.";
+  }
+  if (r.status === 403) return "Esta chave não tem permissão para a API do Gemini. Gere uma chave nova no Google AI Studio.";
+  if (r.status === 404 || /model name|not found/i.test(corpo)) {
+    return `O modelo "${modelo}" não existe ou não está disponível para esta chave. Escolha outro na lista.`;
+  }
+  if (r.status === 429) return "Limite gratuito do Gemini atingido. Tente em alguns minutos.";
+  let detalhe = "";
+  try {
+    detalhe = JSON.parse(corpo).error?.message ?? "";
+  } catch { /* corpo não é JSON */ }
+  return teste
+    ? `O Google respondeu com erro ${r.status}${detalhe ? `: ${detalhe}` : ""}`
+    : `O Google recusou o pedido${detalhe ? `: ${detalhe}` : ""}. Tente de novo ou escolha outro modelo.`;
+}
 
 // "Trabalho / Cliente X" para cada grupo, seguindo parent_id
 function caminhosDosGrupos(rows: { id: string; name: string; parent_id: string | null }[]) {
