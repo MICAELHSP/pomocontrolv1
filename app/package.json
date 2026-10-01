@@ -1,7 +1,7 @@
 {
   "name": "pauta",
   "productName": "Pulso Control",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Demandas, rotinas, cronômetro por atividade e pomodoro",
   "main": "electron/main.cjs",

@@ -12,6 +12,7 @@ import { useMeetingsBetween } from '../lib/outlook';
 import { errMsg } from '../lib/supabase';
 import type { Meeting } from '../lib/types';
 import { useFitHeight } from '../lib/useFit';
+import { useIcsDrop } from '../lib/icsDrop';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 import { CalendarioModal } from './CalendarioSettings';
@@ -42,6 +43,7 @@ interface Day { k: string; d: Date; segs: Seg[]; meetings: Meeting[]; st: DaySta
 export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
   const t = useTimerCtx();
   const ui = useUI();
+  const ics = useIcsDrop();
   const j = useJornada();
   // Clique numa demanda do calendário abre o detalhe dela no painel ao lado.
   const onOpen = (key: string) => { const id = key.startsWith('d:') ? key.slice(2) : ''; if (m.byId.has(id)) ui.open(id); };
@@ -88,7 +90,8 @@ export function Calendario({ m, mode }: { m: Model; mode: CalMode }) {
 
   return (
     <div className="calview">
-      <div className="stack" style={{ gap: 14, minWidth: 0 }}>
+      <div className={`stack icsdrop ${ics.over ? 'over' : ''}`} style={{ gap: 14, minWidth: 0 }} {...ics.dropProps}>
+        {(ics.over || ics.busy) && <div className="dropmsg">{ics.busy ? 'Importando…' : 'Solte o arquivo .ics para importar'}</div>}
         <MonthSummary days={monthDays} month={monthFirst} />
         {entriesQ.error ? <div className="cfgbanner">Não foi possível ler o tempo registrado: {errMsg(entriesQ.error)}</div> : null}
         {cal.available && !cal.connected && (

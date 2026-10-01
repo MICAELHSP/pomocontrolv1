@@ -458,3 +458,8 @@ html.is-mini .toast{left:6px;right:6px;bottom:4px;transform:none;max-width:none;
 .wb.link,.wdue.link,.strip i.link,.tbars .r.link,.sect .item.link{cursor:pointer}
 .wb.link:hover{filter:brightness(1.1);outline:2px solid var(--fg);outline-offset:-1px}
 .tbars .r.link:hover span:first-child,.sect .item.link:hover span:first-child{text-decoration:underline}
+
+/* Arrastar .ics para a agenda */
+.icsdrop{position:relative}
+.icsdrop.over{outline:2px dashed var(--accent);outline-offset:4px;border-radius:12px}
+.dropmsg{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:color-mix(in srgb,var(--surface) 82%,transparent);font-weight:600;color:var(--accent);border-radius:12px;pointer-events:none}

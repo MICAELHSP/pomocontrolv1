@@ -6,6 +6,7 @@ import { dayDiff, dur, hm, isoDate, longDate, shortTime, toMinutes } from '../li
 import { entriesByDay } from '../lib/occupancy';
 import { secondsByActivity } from '../lib/pomodoro';
 import { useFitHeight } from '../lib/useFit';
+import { useIcsDrop } from '../lib/icsDrop';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
 import { CalendarioModal, CalendarSource } from './CalendarioSettings';
@@ -26,6 +27,7 @@ export function Hoje({ m }: { m: Model }) {
   const t = useTimerCtx();
   const ui = useUI();
   const [calOpen, setCalOpen] = useState(false);
+  const ics = useIcsDrop();
   const START = 8 * 60, END = 18 * 60;
   // A agenda ocupa a altura que sobra na tela (sem rolagem); mínimo de 28 px por hora.
   const tlRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,8 @@ export function Hoje({ m }: { m: Model }) {
         <span className="chip"><I.timer /><span className="mono">{dur(total)}</span> registrados hoje</span>
       </div>
       <div className="hoje">
-        <div className="panel">
+        <div className={`panel icsdrop ${ics.over ? 'over' : ''}`} {...ics.dropProps}>
+          {(ics.over || ics.busy) && <div className="dropmsg">{ics.busy ? 'Importando…' : 'Solte o arquivo .ics para importar'}</div>}
           <h3>Agenda do dia <CalendarSource onOpen={() => setCalOpen(true)} /></h3>
           <div className="tlwrap" ref={tlRef}><div className="tl" style={{ height: ((END - START) / 60) * PX + 4 }}>
             {hours.map((h) => <div key={h} className="hr" style={{ top: y(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}:00</span></div>)}

@@ -62,6 +62,13 @@ function Shell() {
   const invalidate = useInvalidate();
   const dem = useDemandasState();
   const [newRoutine, setNewRoutine] = useState(0);
+  // Arquivo solto fora da agenda: não deixa a janela abrir o arquivo no lugar do app.
+  useEffect(() => {
+    const block = (e: DragEvent) => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); };
+    window.addEventListener('dragover', block);
+    window.addEventListener('drop', block);
+    return () => { window.removeEventListener('dragover', block); window.removeEventListener('drop', block); };
+  }, []);
   const ai = useAiSettings();
   const openAI = () => (ai.isSuccess && !ai.data?.key_hint ? ui.openConfig('ia', true) : ui.setAiOpen(true));
   const [calMode, setCalMode] = useState<CalMode>('semana');
