@@ -1,13 +1,11 @@
-name: instalador
+name: release
 
-# Instalador do Windows do app Pauta.
-# - Em PRs que mexem no app: gera o .exe e deixa em "Artifacts" da execução, e confere a API do Supabase.
-# - Em tags v* (ex.: git tag v1.0.0 && git push origin v1.0.0): cria a Release com o .exe anexado.
-# Opcional: segredos VITE_SUPABASE_URL e VITE_SUPABASE_KEY deixam o endereço do Supabase embutido;
+# Gera o instalador do Windows (Pauta-Setup-x.y.z.exe) e anexa numa Release do GitHub.
+# Dispara ao enviar uma tag vX.Y.Z (ex.: git tag v1.0.0 && git push origin v1.0.0) ou manualmente.
+# Opcional: segredos VITE_SUPABASE_URL e VITE_SUPABASE_KEY deixam o endereço do Supabase já embutido;
 # sem eles, o app pede os dois na primeira abertura.
+
 on:
-  pull_request:
-    paths: ['app/**', 'backend/README.md', '.github/workflows/release.yml']
   push:
     tags: ['v*']
   workflow_dispatch:
@@ -16,25 +14,6 @@ permissions:
   contents: write
 
 jobs:
-  # O app só funciona se a API do Supabase expõe o schema demandas_app
-  # (Project Settings > API > Exposed schemas). URL e chave publicável vêm do backend/README.md.
-  supabase-api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: API expõe demandas_app
-        run: |
-          URL=$(grep -oE 'https://[a-z0-9]+\.supabase\.co' backend/README.md | head -1)
-          KEY=$(grep -oE 'sb_publishable_[A-Za-z0-9_-]+' backend/README.md | head -1)
-          code=$(curl -sS -o body.json -w '%{http_code}' "$URL/rest/v1/demands?select=id&limit=1" \
-            -H "apikey: $KEY" -H "Accept-Profile: demandas_app")
-          cat body.json; echo
-          # Sem login a tabela pode negar acesso (401/403); o que não pode é o schema não existir na API.
-          if grep -q PGRST106 body.json || [ "$code" = 000 ] || [ "$code" -ge 500 ]; then
-            echo "::error::A API respondeu $code. Adicione demandas_app em Project Settings > API > Exposed schemas."
-            exit 1
-          fi
-
   windows:
     runs-on: windows-latest
     defaults:
@@ -53,18 +32,6 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
-      - name: Empacotar (electron-builder, NSIS)
-        run: npx electron-builder --win nsis --publish never
+      - run: npx electron-builder --win nsis --publish always
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Pauta-windows
-          path: app/release/*.exe
-          if-no-files-found: error
-      - name: Release da tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/release/*.exe
-          generate_release_notes: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

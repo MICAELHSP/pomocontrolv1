@@ -1,0 +1,53 @@
+name: instalador-pr
+
+# Checagens de instalação em PRs que mexem no app (a Release em si fica no release.yml, nas tags v*):
+# - supabase-api: a API do Supabase expõe o schema demandas_app? Sem isso o app instalado não carrega nada.
+# - windows: gera o instalador .exe e deixa em "Artifacts" da execução, para testar antes de publicar.
+on:
+  pull_request:
+    paths: ['app/**', 'backend/README.md', '.github/workflows/instalador-pr.yml']
+  workflow_dispatch:
+
+jobs:
+  # O app só funciona se a API do Supabase expõe o schema demandas_app
+  # (Project Settings > API > Exposed schemas). URL e chave publicável vêm do backend/README.md.
+  supabase-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: API expõe demandas_app
+        run: |
+          URL=$(grep -oE 'https://[a-z0-9]+\.supabase\.co' backend/README.md | head -1)
+          KEY=$(grep -oE 'sb_publishable_[A-Za-z0-9_-]+' backend/README.md | head -1)
+          code=$(curl -sS -o body.json -w '%{http_code}' "$URL/rest/v1/demands?select=id&limit=1" \
+            -H "apikey: $KEY" -H "Accept-Profile: demandas_app")
+          cat body.json; echo
+          # Sem login a tabela pode negar acesso (401/403); o que não pode é o schema não existir na API.
+          if grep -q PGRST106 body.json || [ "$code" = 000 ] || [ "$code" -ge 500 ]; then
+            echo "::error::A API respondeu $code. Adicione demandas_app em Project Settings > API > Exposed schemas."
+            exit 1
+          fi
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Empacotar (electron-builder, NSIS)
+        run: npx electron-builder --win nsis --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pauta-windows
+          path: app/release/*.exe
+          if-no-files-found: error
