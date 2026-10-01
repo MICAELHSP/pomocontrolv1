@@ -1,0 +1,82 @@
+{
+  "name": "pauta",
+  "productName": "Pauta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demandas, rotinas, cronômetro por atividade e pomodoro",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "dev:web": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.0",
+    "@fontsource/ibm-plex-sans": "^5.2.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "@tanstack/react-query": "^5.104.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^9.0.0",
+    "cross-env": "^10.0.0",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "~5.9.0",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.3",
+    "wait-on": "^9.0.0"
+  },
+  "build": {
+    "appId": "br.micael.pauta",
+    "productName": "Pauta",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png"
+    },
+    "artifactName": "Pauta-Setup-${version}.${ext}",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Pauta"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "MICAELHSP",
+      "repo": "pomocontrolv1",
+      "releaseType": "release"
+    }
+  },
+  "author": "MICAEL",
+  "homepage": "https://github.com/MICAELHSP/pomocontrolv1"
+}
