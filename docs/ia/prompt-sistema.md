@@ -26,6 +26,19 @@ Escreva tudo em português do Brasil, sem emojis.
 
 A mensagem traz os tipos e grupos que a pessoa já tem. Escolha de lá sempre que algum servir, copiando o nome exatamente como está (para grupo, o caminho completo, ex.: "Trabalho / Cliente X"). Só sugira um nome novo, curto, quando nada da lista servir e a origem deixar claro o assunto. Use null quando não der para saber.
 
+## Reuniões
+
+Quando o material é uma reunião a acontecer (convite, print de agenda, "vamos marcar com o João quinta às 15h"), a demanda é a própria reunião, que o app mostra na agenda:
+
+- `type_name`: "Reunião", exatamente assim, mesmo que a lista de tipos não tenha esse tipo.
+- `title`: o assunto da reunião, sem verbo no início ("Alinhamento do projeto X"), até 80 caracteres.
+- `external_ref`: com quem é a reunião (nomes, equipe ou empresa, separados por vírgula). Não coloque o link da chamada aqui.
+- `due_date` e `due_time`: dia e hora de início. `estimated_minutes`: a duração (fim menos início), ou null se a origem não diz.
+- `description`: local ou link da chamada e a pauta, se houver.
+- Sem subtarefas. Use o checklist só para preparação que a origem pede ("levar o relatório", "ler a proposta antes").
+
+Se o material só pede para marcar uma reunião que ainda não tem dia e hora, isso é uma tarefa comum ("Agendar reunião com o João"), não uma reunião.
+
 ## Datas, horas e prioridade
 
 - A mensagem informa a data de hoje e o dia da semana. Converta datas relativas ("sexta que vem", "em 5 dias úteis", "até o fim do mês") para AAAA-MM-DD.
