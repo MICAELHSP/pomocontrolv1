@@ -191,7 +191,7 @@ Testes: `backend/tests/` (ver `backend/tests/run.sh`).
 | Frente | O que precisa | Estado |
 |---|---|---|
 | Backend Supabase | RPC `create_demand_from_ai` e tabela/funções da chave (migrations 05 e 06) | Aplicadas no central-gerencial-prod |
-| Edge Function | Publicar `capturar-demanda` no central-gerencial-prod (`supabase functions deploy capturar-demanda`) | Pendente |
+| Edge Function | `capturar-demanda` no central-gerencial-prod (login obrigatório) | Publicada em 2026-10-01 |
 | Design das telas | Botão "Nova com IA", captura e revisão (seção 6); Configurações > Inteligência artificial (seção 2) | Enviado ao design |
 | App | Reduzir imagens, chamar a função, montar a revisão, chamar a RPC | A fazer |
 | Backend Supabase (opcional) | Tabela `ai_usage` (owner, data, tokens, modelo) para acompanhar uso | Sugestão, não bloqueia |
