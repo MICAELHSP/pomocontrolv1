@@ -21,7 +21,7 @@ Cada linha tem `owner_id` (usuário do Supabase Auth) e o RLS garante que cada u
 | `time_entries` | Sessões de tempo de uma demanda **ou** atividade livre (`free_activity`, ex.: E-mails). `pomodoro_id` = foco em que aconteceu (um foco pode ter várias). `ended_at` nulo = rodando |
 | `work_settings` | Jornada por usuário: início/fim (08:00–17:00), almoço (60 min), dias úteis (`workdays`, 0 = domingo; padrão seg–sex), fuso (America/Sao_Paulo). Sem linha = padrão |
 | `holidays` | Feriados nacionais 2025–2035 (inclui Sexta-feira Santa e 20/11). Compartilhada, só leitura para o app |
-| `calendar_events` | Reuniões do Outlook gravadas pelo app (upsert por `owner_id, source, external_id`): início/fim, dia inteiro, `show_as`, local, link |
+| `calendar_events` | Reuniões gravadas pelo app: `source` 'outlook' (cópia do Outlook) ou 'ics' (arquivo importado). Upsert por `owner_id, source, external_id`: início/fim, dia inteiro, `show_as`, local, link |
 
 Visões (respeitam o RLS): `demand_overview` (demanda + tempo total, tempo em foco, pomodoros, checklist, bloqueios), `pomodoro_breakdown` (cada pomodoro com as atividades dentro dele: "Este foco" e "Pomodoros de hoje") `daily_time` (tempo por dia e atividade) e `time_entry_blocks` (cada sessão com título da demanda, grupo e cor, para o mapa semanal do Calendário).
 

@@ -29,6 +29,7 @@
     "cross-env": "^10.0.0",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
+    "ical.js": "^2.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "~5.9.0",

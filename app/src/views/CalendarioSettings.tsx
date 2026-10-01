@@ -1,10 +1,11 @@
 // Configurações > Calendário (Outlook): conectar a conta Microsoft para ler as reuniões.
 // Painel independente: vai na aba "Calendário (Outlook)" de Configurações e, até ela existir,
 // abre como janela sobre a tela Hoje (CalendarioModal).
-import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { I } from '../components/Icons';
 import { Modal } from '../components/Modal';
+import { clearIcs, countIcs, importIcs } from '../lib/ics';
 import { calKeys, outlook, useCalendar } from '../lib/outlook';
 import { REMINDER_OPTIONS, saveReminderPrefs, useReminderPrefs } from '../lib/reminders';
 import { errMsg } from '../lib/supabase';
@@ -25,7 +26,14 @@ export function CalendarioSettings() {
   }, [st]);
 
   if (!cal.available) {
-    return <div className="cal-set"><p className="note">O calendário do Outlook funciona só no app instalado (Electron), não no navegador.</p></div>;
+    return (
+      <div className="cal-set">
+        <h3>Calendário</h3>
+        <p className="note">A conexão com o Outlook funciona só no app instalado, não no navegador.</p>
+        <IcsImport />
+        <ReminderSettings />
+      </div>
+    );
   }
 
   const refreshAll = () => qc.invalidateQueries({ queryKey: calKeys.events });
@@ -83,7 +91,54 @@ export function CalendarioSettings() {
         </>
       )}
       {err && <p className="err">{err}</p>}
+      <IcsImport />
       <ReminderSettings />
+    </div>
+  );
+}
+
+function IcsImport() {
+  const qc = useQueryClient();
+  const count = useQuery({ queryKey: ['ics', 'count'], queryFn: countIcs });
+  const [busy, setBusy] = useState<'' | 'import' | 'clear'>('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const done = () => { qc.invalidateQueries({ queryKey: calKeys.events }); qc.invalidateQueries({ queryKey: ['ics'] }); };
+
+  const pick = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])];
+    e.target.value = '';
+    if (!files.length) return;
+    setBusy('import'); setErr(''); setMsg('');
+    try {
+      let n = 0;
+      for (const f of files) n += await importIcs(await f.text());
+      setMsg(n ? `${n} ${n === 1 ? 'evento importado' : 'eventos importados'}.` : 'Nenhum evento entre 1 ano atrás e 1 ano à frente no arquivo.');
+      done();
+    } catch (x) { setErr(errMsg(x)); }
+    setBusy('');
+  };
+  const clear = async () => {
+    if (!window.confirm('Remover todos os eventos importados de arquivos .ics? As reuniões do Outlook continuam.')) return;
+    setBusy('clear'); setErr(''); setMsg('');
+    try { await clearIcs(); setMsg('Eventos importados removidos.'); done(); } catch (x) { setErr(errMsg(x)); }
+    setBusy('');
+  };
+  const n = count.data ?? 0;
+
+  return (
+    <div className="cal-ok" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+      <h4 style={{ margin: 0 }}>Importar arquivo .ics</h4>
+      <p className="note">Para calendários sem conexão direta (Google, Teams, convites por e-mail). Os eventos entram na agenda, na ocupação e nos avisos. Importar de novo o mesmo arquivo atualiza, sem duplicar. Repetições são lidas de 1 ano atrás até 1 ano à frente.</p>
+      <div className="ai-row">
+        <label className="btn" aria-disabled={!!busy} style={busy ? { opacity: .55, pointerEvents: 'none' } : undefined}>
+          <I.cal />{busy === 'import' ? 'Importando…' : 'Escolher arquivo .ics'}
+          <input type="file" accept=".ics,text/calendar" multiple hidden disabled={!!busy} onChange={pick} />
+        </label>
+        {n > 0 && <button className="btn ghost" disabled={!!busy} onClick={clear}>{busy === 'clear' ? 'Removendo…' : `Remover importados (${n})`}</button>}
+      </div>
+      {msg && <p className="note">{msg}</p>}
+      {err && <p className="err">{err}</p>}
     </div>
   );
 }
