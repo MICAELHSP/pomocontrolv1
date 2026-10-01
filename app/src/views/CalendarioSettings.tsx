@@ -51,7 +51,7 @@ export function CalendarioSettings() {
   return (
     <div className="cal-set">
       <h3>Calendário (Outlook)</h3>
-      <p className="note">O Pauta só lê as suas reuniões para mostrar na agenda e avisar quando um prazo cai em cima de uma delas. Nada é gravado no Outlook nem no banco.</p>
+      <p className="note">O Pauta só lê as suas reuniões para mostrar na agenda e avisar quando um prazo cai em cima de uma delas. Nada é alterado no Outlook. Uma cópia das reuniões (assunto, horário, local e link) fica no banco do Pauta para o Calendário e a ocupação.</p>
 
       {cal.connected ? (
         <div className="cal-ok">
