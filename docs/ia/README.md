@@ -74,7 +74,7 @@ Publicar a função: `supabase functions deploy capturar-demanda --project-ref x
 | Endpoint | `POST https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent`, chave no cabeçalho `x-goog-api-key` | Uma chamada REST com `fetch`, sem SDK nem ferramentas |
 | Modelo | o escolhido em Configurações (normalizado: "Gemini 2.5 Flash" vira `gemini-2.5-flash`); senão o segredo `GEMINI_MODEL`; senão `gemini-3.8-flash` | Tem nível gratuito, lê imagem e PDF e aceita saída em JSON |
 | Chave | a do usuário (Vault) ou o segredo `GEMINI_API_KEY` | Ver seção 2 |
-| `generationConfig` | `responseMimeType: application/json` e `responseJsonSchema` = `proposta.schema.json` | A resposta vem no formato da proposta. Se o modelo recusar o schema, a função repete o pedido só com JSON e o schema no texto |
+| `generationConfig` | `responseMimeType: application/json` e `responseJsonSchema` = `{ propostas: [proposta.schema.json] }` | A resposta vem no formato da proposta. Se o modelo recusar o schema, a função repete o pedido só com JSON e o schema no texto |
 | `maxOutputTokens` | 16000 | Folga; uma proposta usa bem menos |
 | `systemInstruction` | `prompt-sistema.md` | Fixo; data, tipos e grupos vão na mensagem |
 | `contents` | contexto (hoje, dia da semana, tipos, grupos) → imagens/PDF em `inlineData` → texto dentro de `<origem>` | Imagens antes do texto; `<origem>` separa o material recebido das instruções |
@@ -155,7 +155,7 @@ Regra que o prompt usa para dividir os passos: vira **subtarefa** o passo com ma
 { modo: "modelos" } // resposta: { ok: true, modelos: [{ id: "gemini-2.5-flash", nome: "Gemini 2.5 Flash" }], atual } ou { ok: false, erro }
 ```
 
-Resposta: `{ proposta, uso: { modelo, input_tokens, output_tokens } }` ou `{ erro }` com status 4xx/5xx.
+Resposta: `{ proposta, propostas, uso: { modelo, input_tokens, output_tokens } }` ou `{ erro }` com status 4xx/5xx. `propostas` é a lista (quase sempre com uma; até 5 só quando a pessoa pede explicitamente mais de uma demanda; no modo refinar, sempre uma). `proposta` é a primeira, para apps que ainda tratam uma só. O app grava cada proposta aprovada com uma chamada à RPC.
 
 Limites: texto até 60 mil caracteres; até 5 anexos de até 5 MB. **O app reduz as imagens antes de enviar** (lado maior com até 1568 px, JPEG qualidade ~85): fica mais rápido e mais barato sem perder leitura. No modo refinar o app não reenvia as imagens: a proposta atual já carrega o que foi lido delas.
 
