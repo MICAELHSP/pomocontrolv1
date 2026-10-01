@@ -10,9 +10,9 @@ import { errMsg, getConn, sb } from './lib/supabase';
 import { TimerProvider } from './timer/TimerContext';
 import { UIProvider, useUI } from './ui';
 import { AiCapture } from './views/AiCapture';
-import { Calendario, CalendarioToolbar, useCalState } from './views/Calendario';
 import { Configuracoes } from './views/Configuracoes';
 import { Demandas, DemandasToolbar, useDemandasState } from './views/Demandas';
+import { Calendario, CalendarioToolbar, type CalMode } from './views/Calendario';
 import { Detail } from './views/Detail';
 import { Foco } from './views/Foco';
 import { Hoje, HojeToolbar } from './views/Hoje';
@@ -52,10 +52,10 @@ function Shell() {
   const toast = useToast();
   const invalidate = useInvalidate();
   const dem = useDemandasState();
-  const cal = useCalState();
   const [newRoutine, setNewRoutine] = useState(0);
   const ai = useAiSettings();
   const openAI = () => (ai.isSuccess && !ai.data?.key_hint ? ui.openConfig('ia', true) : ui.setAiOpen(true));
+  const [calMode, setCalMode] = useState<CalMode>('semana');
 
   // Ao abrir (e a cada 6 h): gera as ocorrências das rotinas para os próximos dias.
   useEffect(() => {
@@ -79,7 +79,7 @@ function Shell() {
       <Nav m={m} />
       <section className="main">
         {ui.view === 'hoje' && <HojeToolbar onAI={openAI} />}
-        {ui.view === 'calendario' && <CalendarioToolbar {...cal} />}
+        {ui.view === 'calendario' && <CalendarioToolbar mode={calMode} setMode={setCalMode} />}
         {ui.view === 'demandas' && <DemandasToolbar m={m} {...dem} onAI={openAI} />}
         {ui.view === 'rotinas' && <RotinasToolbar onNew={() => setNewRoutine((x) => x + 1)} />}
         {ui.view === 'foco' && <div className="toolbar"><h2>Foco</h2></div>}
@@ -87,9 +87,9 @@ function Shell() {
         <div className="view">
           {m.error ? <div className="cfgbanner">Não foi possível ler os dados: {errMsg(m.error)}. Confira se o schema demandas_app está em Project Settings &gt; API &gt; Exposed schemas.</div> : null}
           {ui.view === 'hoje' && <Hoje m={m} />}
+          {ui.view === 'calendario' && <Calendario m={m} mode={calMode} />}
           {ui.view === 'demandas' && <Demandas m={m} q={dem.q} groupBy={dem.groupBy} sortBy={dem.sortBy} setSortBy={dem.setSortBy} />}
           {ui.view === 'rotinas' && <Rotinas m={m} newTick={newRoutine} />}
-          {ui.view === 'calendario' && <Calendario m={m} {...cal} />}
           {ui.view === 'foco' && <Foco m={m} />}
           {ui.view === 'config' && <Configuracoes />}
         </div>

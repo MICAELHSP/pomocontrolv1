@@ -5,12 +5,12 @@ Telas seguem `design/prototipo.html`: Hoje, Calendário, Demandas (com detalhe),
 
 ## Instalar (Windows)
 
-1. Em [Releases](https://github.com/MICAELHSP/pomocontrolv1/releases), baixe `Pauta-Setup-x.y.z.exe` e execute. O Windows pode avisar que o editor é desconhecido (o instalador não é assinado): clique em **Mais informações > Executar assim mesmo**.
+1. Em [Releases](https://github.com/MICAELHSP/pomocontrolv1/releases), baixe `Pauta Setup x.y.z.exe` e execute (passo a passo em `../docs/INSTALAR.md`). O Windows pode avisar que o editor é desconhecido (o instalador não é assinado): clique em **Mais informações > Executar assim mesmo**.
 2. Na primeira abertura, informe a **URL do projeto** e a **chave publicável** do Supabase (Supabase > Project Settings > API; ver `../backend/README.md`). Ficam guardadas só neste computador.
 3. Crie a conta (e-mail e senha) ou entre.
 4. Para a IA: **Configurações > Inteligência artificial**, cole a chave do Gemini (https://aistudio.google.com/apikey) e clique em "Salvar e testar". A função `capturar-demanda` precisa estar publicada no Supabase (ver `../ia/`).
 
-Nova versão do instalador: `git tag v1.0.1 && git push origin v1.0.1` (o workflow `release` gera o .exe e cria a Release). Se os segredos `VITE_SUPABASE_URL` e `VITE_SUPABASE_KEY` existirem no repositório, o instalador já vem com o endereço do Supabase.
+Nova versão do instalador: suba `version` no package.json e envie uma tag (`git tag v1.0.1 && git push origin v1.0.1`); o workflow `instalador` gera o .exe e cria a Release.
 
 ## Rodar em desenvolvimento
 
@@ -54,7 +54,8 @@ Outros comandos:
 
 - **Semana**: o tempo registrado em cada demanda aparece como blocos coloridos pelo grupo, das 08h às 18h, com as entregas do dia.
 - **Mês**: cada dia pintado pela ocupação da jornada. **Relatório do dia**: ocupação, demandas, atividades livres, reuniões, tempo sem registro e o tempo por demanda.
-- Ocupação = (tempo registrado + reuniões fora desse tempo) ÷ jornada. A jornada (padrão 08:00–17:00, 60 min de almoço, seg–sex) fica em Configurações > Jornada; feriados nacionais ficam fora.
+- Ocupação = (tempo registrado + reuniões fora desse tempo) ÷ jornada. A jornada (padrão 08:00–17:00, 60 min de almoço, seg–sex) fica em Configurações > Jornada (tabela `work_settings`); feriados nacionais ficam fora.
+- Reuniões vêm do Outlook (Configurações > Calendário (Outlook); ver `../docs/outlook.md`).
 
 Toda regra fica no banco (RPCs `start_activity`, `stop_activity`, `start_pomodoro`, `finish_pomodoro`); o app só mostra o relógio entre uma leitura e outra.
 
@@ -70,6 +71,6 @@ src/views/       Hoje, Calendário, Demandas, Detalhe, Rotinas, Foco, Configura�
 build/           ícone do instalador
 ```
 
-## Ainda não feito
+## Calendário do Outlook
 
-- Reuniões do Outlook no calendário e no alerta de conflito: em andamento na integração com o Outlook. Até lá o calendário mostra só o tempo registrado.
+O app lê as reuniões do Outlook (Microsoft Graph, só leitura) para a agenda de Hoje, o selo de conflito e o "Mover para". O login e as chamadas ficam no processo principal (`electron/outlook.cjs`); o renderer usa `useCalendar()` de `src/lib/outlook.ts`. Para conectar é preciso registrar o app no Azure: passo a passo em [docs/outlook.md](../docs/outlook.md). No `npm run dev:web` (navegador) o calendário fica indisponível.

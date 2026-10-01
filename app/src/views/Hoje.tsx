@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { conflictOf, DemandRow } from '../components/DemandRow';
 import { I } from '../components/Icons';
-import { isOpen, MEETINGS, type Model } from '../data/model';
-import { dayDiff, dur, hm, longDate, shortTime, toMinutes } from '../lib/format';
+import { isOpen, type Model } from '../data/model';
+import { dayDiff, dur, hm, isoDate, longDate, shortTime, toMinutes } from '../lib/format';
 import { secondsByActivity } from '../lib/pomodoro';
 import { useTimerCtx } from '../timer/TimerContext';
 import { useUI } from '../ui';
+import { CalendarioModal, CalendarSource } from './CalendarioSettings';
 
 export function HojeToolbar({ onAI }: { onAI?: () => void }) {
   const t = useTimerCtx();
@@ -21,6 +23,7 @@ export function HojeToolbar({ onAI }: { onAI?: () => void }) {
 export function Hoje({ m }: { m: Model }) {
   const t = useTimerCtx();
   const ui = useUI();
+  const [calOpen, setCalOpen] = useState(false);
   const PX = 56, START = 8 * 60, END = 18 * 60;
   const y = (min: number) => ((Math.min(Math.max(min, START), END + 60) - START) / 60) * PX;
   const nowD = new Date(t.now);
@@ -29,7 +32,8 @@ export function Hoje({ m }: { m: Model }) {
   const open = m.demands.filter(isOpen);
   const late = open.filter((d) => d.due_date && dayDiff(d.due_date) < 0);
   const today = open.filter((d) => d.due_date && dayDiff(d.due_date) === 0);
-  const confl = open.filter((d) => conflictOf(d));
+  const confl = open.filter((d) => conflictOf(d, m));
+  const meetings = m.meetingsOn(isoDate(nowD));
   const blocks = open.filter((d) => d.planned_start && new Date(d.planned_start).toDateString() === nowD.toDateString());
 
   const since = new Date(nowD); since.setHours(0, 0, 0, 0);
@@ -54,11 +58,11 @@ export function Hoje({ m }: { m: Model }) {
       </div>
       <div className="hoje">
         <div className="panel">
-          <h3>Agenda do dia <span className="src">Reuniões do Outlook entram na fase de integração</span></h3>
+          <h3>Agenda do dia <CalendarSource onOpen={() => setCalOpen(true)} /></h3>
           <div className="tlwrap"><div className="tl">
             {hours.map((h) => <div key={h} className="hr" style={{ top: y(h * 60) }}><span className="mono">{String(h).padStart(2, '0')}:00</span></div>)}
-            {MEETINGS.map((mt) => (
-              <div key={mt.title + mt.start} className="ev meet" style={{ top: y(toMinutes(mt.start)!), height: y(toMinutes(mt.end)!) - y(toMinutes(mt.start)!) - 2 }}>
+            {meetings.map((mt) => (
+              <div key={(mt.id ?? mt.title) + mt.start} className="ev meet" title={mt.title} style={{ top: y(toMinutes(mt.start)!), height: y(toMinutes(mt.end)!) - y(toMinutes(mt.start)!) - 2 }}>
                 <b>{mt.title}</b><span className="mono">{mt.start}–{mt.end}</span> · Outlook
               </div>
             ))}
@@ -72,7 +76,7 @@ export function Hoje({ m }: { m: Model }) {
               );
             })}
             {today.filter((d) => d.due_time).map((d) => {
-              const c = conflictOf(d);
+              const c = conflictOf(d, m);
               return (
                 <div key={d.id} className={`due ${c ? 'conf' : ''}`} style={{ top: y(toMinutes(d.due_time)!) }}>
                   <span>{c ? 'Conflito · ' : ''}Entrega {shortTime(d.due_time)} · {d.title.length > 28 ? d.title.slice(0, 28) + '…' : d.title}</span>
@@ -103,6 +107,7 @@ export function Hoje({ m }: { m: Model }) {
           </div>
         </div>
       </div>
+      {calOpen && <CalendarioModal onClose={() => setCalOpen(false)} />}
     </>
   );
 }

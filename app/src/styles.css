@@ -353,6 +353,19 @@ button{cursor:pointer}
 .res svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
 .res.ok{color:var(--ok)}.res.err{color:var(--danger)}
 .fine{font-size:12px;color:var(--muted);margin:0;padding-top:10px;border-top:1px dashed var(--line)}
+/* ---------- calendário (Outlook) ---------- */
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.linkbtn.err,.err{color:var(--danger)}
+p.err{font-size:13px;margin:0}
+.modal-back{position:fixed;inset:0;z-index:50;background:rgba(12,18,21,.45);display:grid;place-items:center;padding:16px}
+.modal{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px}
+.modal-x{position:absolute;top:10px;right:10px}
+.cal-set{display:flex;flex-direction:column;gap:12px}
+.cal-set h3{margin:0;font-size:15px}
+.cal-set a{color:var(--accent)}
+.cal-ok{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+
+/* ---------- calendário (semana, mês, relatório do dia) ---------- */
 .calview{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:18px;align-items:start}
 .mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .mhd{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 4px 2px}

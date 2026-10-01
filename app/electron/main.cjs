@@ -1,6 +1,7 @@
 // Processo principal do Electron: abre a janela do Pauta.
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('node:path');
+const { registerOutlook } = require('./outlook.cjs');
 
 const devUrl = process.env.VITE_DEV_SERVER_URL;
 
@@ -46,6 +47,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     // No mac o menu padrão é o que dá Cmd+C/Cmd+V; nos outros some.
     if (!devUrl && process.platform !== 'darwin') Menu.setApplicationMenu(null);
+    registerOutlook();
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });
