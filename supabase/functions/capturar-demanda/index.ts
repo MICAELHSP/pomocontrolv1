@@ -8,7 +8,7 @@
 // usuário, senão o segredo GEMINI_MODEL, senão o padrão abaixo.
 // SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY já existem no ambiente das Edge Functions.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { PROPOSTA_SCHEMA, SYSTEM_PROMPT } from "./prompt.ts";
+import { RESPOSTA_SCHEMA, SYSTEM_PROMPT } from "./prompt.ts";
 
 const MODELO_PADRAO = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
 // Usados, nesta ordem, quando o modelo escolhido está sobrecarregado ou no limite.
@@ -25,6 +25,7 @@ const TIPOS_IMAGEM = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const MAX_SUBTAREFAS = 8;
 const MAX_CHECKLIST = 12;
 const MAX_PERGUNTAS = 3;
+const MAX_PROPOSTAS = 5; // demandas independentes num pedido (só quando a pessoa pede mais de uma)
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -212,14 +213,14 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         systemInstruction: {
           parts: [{
-            text: comSchema ? SYSTEM_PROMPT : `${SYSTEM_PROMPT}\n\nResponda só com um JSON neste formato (JSON Schema):\n${JSON.stringify(PROPOSTA_SCHEMA)}`,
+            text: comSchema ? SYSTEM_PROMPT : `${SYSTEM_PROMPT}\n\nResponda só com um JSON neste formato (JSON Schema):\n${JSON.stringify(RESPOSTA_SCHEMA)}`,
           }],
         },
         contents: [{ role: "user", parts }],
         generationConfig: {
           maxOutputTokens: 16000,
           responseMimeType: "application/json",
-          ...(comSchema ? { responseJsonSchema: PROPOSTA_SCHEMA } : {}),
+          ...(comSchema ? { responseJsonSchema: RESPOSTA_SCHEMA } : {}),
         },
       }),
     });
@@ -275,19 +276,27 @@ Deno.serve(async (req) => {
   }
   // Partes com thought=true são raciocínio; a proposta é o texto restante
   const textoResposta = (candidato?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("");
-  let proposta: Proposta;
+  // { propostas: [...] }; aceita também uma proposta solta (modelo sem schema)
+  let propostas: Proposta[];
   try {
-    proposta = JSON.parse(textoResposta);
+    const bruto = JSON.parse(textoResposta);
+    propostas = (Array.isArray(bruto?.propostas) ? bruto.propostas : [bruto]).filter((p: Proposta) => p?.demand);
   } catch {
-    return json({ erro: "Resposta da IA fora do formato. Tente de novo." }, 502);
+    propostas = [];
+  }
+  if (propostas.length === 0) return json({ erro: "Resposta da IA fora do formato. Tente de novo." }, 502);
+  // Ajuste mexe numa proposta só
+  propostas = propostas.slice(0, modo === "refinar" ? 1 : MAX_PROPOSTAS);
+
+  for (const proposta of propostas) {
+    validar(proposta);
+    proposta.demand.type_id = acharId(tipos.map((t) => ({ id: t.id, nome: t.name })), proposta.demand.type_name);
+    proposta.demand.group_id = acharId(grupos.map((g) => ({ id: g.id, nome: g.path })), proposta.demand.group_path);
   }
 
-  validar(proposta);
-  proposta.demand.type_id = acharId(tipos.map((t) => ({ id: t.id, nome: t.name })), proposta.demand.type_name);
-  proposta.demand.group_id = acharId(grupos.map((g) => ({ id: g.id, nome: g.path })), proposta.demand.group_path);
-
   return json({
-    proposta,
+    proposta: propostas[0], // apps até a 1.2: só a primeira
+    propostas,
     uso: {
       modelo: modeloUsado,
       input_tokens: resposta.usageMetadata?.promptTokenCount ?? 0,
