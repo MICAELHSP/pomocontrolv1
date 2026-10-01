@@ -61,7 +61,7 @@ Publicar a função: `supabase functions deploy capturar-demanda --project-ref x
 ### Tela Configurações > Inteligência artificial (para o design)
 
 - Campo **Chave do Gemini** (tipo senha, com olho para mostrar o que está sendo digitado) e link "Onde pego a chave?" abrindo aistudio.google.com.
-- Campo **Modelo**, opcional, com o padrão `gemini-3.8-flash` já sugerido.
+- Campo **Modelo** como lista de seleção, preenchida com `{ modo: "modelos" }` depois que a chave é salva (só modelos Gemini que geram texto, mais novos primeiro). Antes de haver chave, a lista fica desabilitada com o padrão.
 - Botão **Salvar e testar**: chama `set_ai_key` e depois a função com `{ modo: "testar" }`. Mostra "Chave funcionando (gemini-3.8-flash)" em verde ou a mensagem de erro devolvida.
 - Com chave salva, o campo aparece vazio e acima dele o estado: "Chave salva: …a1B2, atualizada em 30/09". Botões **Trocar chave** e **Remover chave**.
 - Aviso fixo em texto pequeno: "No plano gratuito, o Google pode usar o que você envia para melhorar os produtos dele. Não envie documentos sigilosos."
@@ -72,10 +72,9 @@ Publicar a função: `supabase functions deploy capturar-demanda --project-ref x
 | Parâmetro | Valor | Por quê |
 |---|---|---|
 | Endpoint | `POST https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent`, chave no cabeçalho `x-goog-api-key` | Uma chamada REST com `fetch`, sem SDK nem ferramentas |
-| Modelo | o escolhido em Configurações; senão o segredo `GEMINI_MODEL`; senão `gemini-3.8-flash` | Tem nível gratuito, lê imagem e PDF e aceita saída em JSON |
+| Modelo | o escolhido em Configurações (normalizado: "Gemini 2.5 Flash" vira `gemini-2.5-flash`); senão o segredo `GEMINI_MODEL`; senão `gemini-3.8-flash` | Tem nível gratuito, lê imagem e PDF e aceita saída em JSON |
 | Chave | a do usuário (Vault) ou o segredo `GEMINI_API_KEY` | Ver seção 2 |
-| `generationConfig.responseFormat.text` | `mimeType: application/json` e `schema` = `proposta.schema.json` | A resposta vem sempre no formato da proposta |
-| `generationConfig.thinkingConfig.thinkingLevel` | `low` | Tarefa de extração e organização; subir se as propostas vierem rasas |
+| `generationConfig` | `responseMimeType: application/json` e `responseJsonSchema` = `{ propostas: [proposta.schema.json] }` | A resposta vem no formato da proposta. Se o modelo recusar o schema, a função repete o pedido só com JSON e o schema no texto |
 | `maxOutputTokens` | 16000 | Folga; uma proposta usa bem menos |
 | `systemInstruction` | `prompt-sistema.md` | Fixo; data, tipos e grupos vão na mensagem |
 | `contents` | contexto (hoje, dia da semana, tipos, grupos) → imagens/PDF em `inlineData` → texto dentro de `<origem>` | Imagens antes do texto; `<origem>` separa o material recebido das instruções |
@@ -85,7 +84,8 @@ Tratamento da resposta (em `index.ts`):
 - Bloqueio de conteúdo (`promptFeedback.blockReason`, `finishReason` `SAFETY` ou `PROHIBITED_CONTENT`): 422 "A IA não processou esse conteúdo. Crie a demanda manualmente."
 - `finishReason = "MAX_TOKENS"`: 422 pedindo um trecho menor.
 - Sem chave nenhuma: 412 "Configure a chave do Gemini em Configurações > Inteligência artificial."
-- 429 (limite do nível gratuito): 429 para o app ("tente em alguns minutos"). 400/403 (chave errada): 502 com o detalhe nos logs da função. Outros erros: 502.
+- Sobrecarga (503/500) ou limite (429): a função repete no mesmo modelo após 1,5 s e 4 s; se continuar, tenta os modelos reserva (`gemini-2.5-flash`, `gemini-2.5-flash-lite`, ou o segredo `GEMINI_MODELOS_RESERVA`). Um modelo inexistente (404) também passa para a reserva. `uso.modelo` diz qual modelo respondeu. Se todos falharem, devolve a mensagem do modelo escolhido (429 para limite, 502 para sobrecarga).
+- 400/401/403 (chave errada ou pedido inválido): não troca de modelo; 502 com o detalhe nos logs da função. Outros erros: 502.
 - Partes marcadas como `thought` (raciocínio) são descartadas; a proposta é o texto restante.
 - A função `validar()` aplica o que o JSON schema não expressa: até 8 subtarefas, 12 itens por checklist, 3 perguntas; datas e horas válidas (sem data não há hora); estimativa positiva; `ref` únicos; remove dependências para `ref` inexistente e quebra ciclos (o banco recusaria).
 - Depois resolve `type_name` e `group_path` para `type_id` e `group_id` comparando com os existentes sem diferenciar maiúsculas. Se não achar, o id vem `null` e o app mostra o nome como "novo".
@@ -151,9 +151,11 @@ Regra que o prompt usa para dividir os passos: vira **subtarefa** o passo com ma
 { modo: "refinar", proposta_atual: Proposta, instrucao: "junte as duas primeiras subtarefas e tire o prazo", texto?: string }
 // testar a chave salva (consulta o modelo no Google, não gera nada)
 { modo: "testar" }  // resposta: { ok: true, modelo, origem: "app" | "servidor" } ou { ok: false, erro }
+// modelos que a chave pode usar, para a lista de seleção em Configurações
+{ modo: "modelos" } // resposta: { ok: true, modelos: [{ id: "gemini-2.5-flash", nome: "Gemini 2.5 Flash" }], atual } ou { ok: false, erro }
 ```
 
-Resposta: `{ proposta, uso: { modelo, input_tokens, output_tokens } }` ou `{ erro }` com status 4xx/5xx.
+Resposta: `{ proposta, propostas, uso: { modelo, input_tokens, output_tokens } }` ou `{ erro }` com status 4xx/5xx. `propostas` é a lista (quase sempre com uma; até 5 só quando a pessoa pede explicitamente mais de uma demanda; no modo refinar, sempre uma). `proposta` é a primeira, para apps que ainda tratam uma só. O app grava cada proposta aprovada com uma chamada à RPC.
 
 Limites: texto até 60 mil caracteres; até 5 anexos de até 5 MB. **O app reduz as imagens antes de enviar** (lado maior com até 1568 px, JPEG qualidade ~85): fica mais rápido e mais barato sem perder leitura. No modo refinar o app não reenvia as imagens: a proposta atual já carrega o que foi lido delas.
 
